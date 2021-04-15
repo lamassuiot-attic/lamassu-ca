@@ -54,6 +54,10 @@ JAEGER_SERVICE_NAME=enroller-ca //Jaeger tracing service name.
 JAEGER_AGENT_HOST=jaeger //Jaeger agent host.
 JAEGER_AGENT_PORT=6831 //Jaeger agent port.
 ```
+The prefix `(CA_)` used to declare the environment variables can be changed in `cmd/main.go`:
+```
+cfg, err := configs.NewConfig("ca")
+```
 ## Docker
 The recommended way to run [Lamassu](https://www.lamassu.io) is following the steps explained in [lamassu-compose](https://github.com/lamassuiot/lamassu-compose) repository. However, each component can be run separately in Docker following the next steps.
 ```

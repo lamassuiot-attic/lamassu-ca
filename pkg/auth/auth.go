@@ -6,8 +6,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/lamassuiot/enroller/pkg/ca/utils"
-	"github.com/lamassuiot/enroller/pkg/enroller/crypto"
+	"github.com/lamassuiot/lamassu-ca/pkg/utils"
 
 	stdjwt "github.com/dgrijalva/jwt-go"
 )
@@ -111,7 +110,7 @@ func (a *auth) Kf(token *stdjwt.Token) (interface{}, error) {
 		return nil, errBadPublicKeyRequest
 	}
 
-	pubKey, err := crypto.ParseKeycloakPublicKey([]byte(crypto.PublicKeyHeader + "\n" + keyPublic.PublicKey + "\n" + crypto.PublicKeyFooter))
+	pubKey, err := utils.ParseKeycloakPublicKey([]byte(utils.PublicKeyHeader + "\n" + keyPublic.PublicKey + "\n" + utils.PublicKeyFooter))
 	if err != nil {
 		return nil, errBadPublicKeyParse
 	}

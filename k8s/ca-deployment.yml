@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: ca
+  labels:
+    app: ca
+  annotations:
+    "sidecar.jaegertracing.io/inject": "true"
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: ca
+  template:
+    metadata:
+      labels:
+        app: ca
+    spec:
+      containers:
+        - name: ca
+          image: ca:latest
+          imagePullPolicy: Never
+          volumeMounts:
+            - name: certs
+              mountPath: "/certs"
+              readOnly: true
+          env:
+            - name: CA_PORT
+              value: "8087"
+            - name: CA_VAULTADDRESS
+              value: "https://vault:8200"
+            - name: CA_VAULTROLEID
+              valueFrom:
+                secretKeyRef:
+                  name: ca-vault-secrets
+                  key: roleid
+            - name: CA_VAULTSECRETID
+              valueFrom:
+                secretKeyRef:
+                  name: ca-vault-secrets
+                  key: secretid
+            - name: CA_VAULTCA
+              value: "/certs/vault.crt"
+            - name: CA_CERTFILE
+              value: "/certs/enroller.crt"
+            - name: CA_KEYFILE
+              value: "/certs/enroller.key"
+            - name: CA_KEYCLOAKHOSTNAME
+              value: "keycloak"
+            - name: CA_KEYCLOAKPORT
+              value: "8443"
+            - name: CA_KEYCLOAKREALM
+              value: "lamassu"
+            - name: CA_KEYCLOAKCA
+              value: "/certs/keycloak.crt"
+            - name: CA_KEYCLOAKPROTOCOL
+              value: "https"
+            - name: CA_ENROLLERUIPROTOCOL
+              value: "https"
+            - name: CA_ENROLLERUIHOST
+              value: "enrollerui"
+            - name: CA_CONSULPROTOCOL
+              value: "https"
+            - name: CA_CONSULHOST
+              value: "consul-server"
+            - name: CA_CONSULCA
+              value: "/certs/consul.crt"
+            - name: CA_CONSULPORT
+              value: "8501"
+            - name: JAEGER_SERVICE_NAME
+              value: "enroller-ca"
+            - name: JAEGER_AGENT_HOST
+              value: "localhost"
+            - name: JAEGER_AGENT_PORT
+              value: "6831"
+      volumes:
+        - name: certs
+          secret:
+            secretName: ca-certs

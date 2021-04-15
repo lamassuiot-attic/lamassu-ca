@@ -5,7 +5,7 @@ import (
 
 	"math/rand"
 
-	"github.com/lamassuiot/enroller/pkg/enroller/discovery"
+	"github.com/lamassuiot/lamassu-ca/pkg/discovery"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"

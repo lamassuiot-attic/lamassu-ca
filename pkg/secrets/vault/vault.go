@@ -12,7 +12,7 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 
-	"github.com/lamassuiot/enroller/pkg/ca/secrets"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/hashicorp/vault/api"
 )

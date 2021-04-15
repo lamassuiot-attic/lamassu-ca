@@ -3,7 +3,7 @@ package api
 import (
 	"context"
 
-	"github.com/lamassuiot/enroller/pkg/ca/secrets"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/go-kit/kit/endpoint"
 	"github.com/go-kit/kit/tracing/opentracing"

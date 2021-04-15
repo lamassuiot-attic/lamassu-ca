@@ -7,11 +7,11 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/lamassuiot/enroller/pkg/ca/api"
-	"github.com/lamassuiot/enroller/pkg/ca/auth"
-	"github.com/lamassuiot/enroller/pkg/ca/configs"
-	"github.com/lamassuiot/enroller/pkg/ca/discovery/consul"
-	"github.com/lamassuiot/enroller/pkg/ca/secrets/vault"
+	"github.com/lamassuiot/lamassu-ca/pkg/api"
+	"github.com/lamassuiot/lamassu-ca/pkg/auth"
+	"github.com/lamassuiot/lamassu-ca/pkg/configs"
+	"github.com/lamassuiot/lamassu-ca/pkg/discovery/consul"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets/vault"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"

@@ -6,8 +6,8 @@ import (
 	"net"
 	"testing"
 
-	"github.com/lamassuiot/enroller/pkg/ca/mocks"
-	"github.com/lamassuiot/enroller/pkg/ca/secrets"
+	"github.com/lamassuiot/lamassu-ca/pkg/mocks"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 )
 
 type serviceSetUp struct {

@@ -5,7 +5,7 @@ import (
 	"errors"
 	"sync"
 
-	"github.com/lamassuiot/enroller/pkg/ca/secrets"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 )
 
 type Service interface {

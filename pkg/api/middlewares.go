@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/lamassuiot/enroller/pkg/ca/secrets"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/go-kit/kit/log"
 )

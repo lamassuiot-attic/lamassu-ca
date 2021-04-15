@@ -6,7 +6,7 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/lamassuiot/enroller/pkg/enroller/auth"
+	"github.com/lamassuiot/lamassu-ca/pkg/auth"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/tracing/opentracing"

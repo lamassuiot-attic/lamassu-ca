@@ -1,7 +1,7 @@
 #!/bin/bash
 
 NAME=ca
-OUTPUT=../../build
+OUTPUT=../build
 
 mkdir -p ${OUTPUT}
 

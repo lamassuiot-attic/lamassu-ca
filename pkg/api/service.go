@@ -25,7 +25,7 @@ var (
 	errInvalidCA = errors.New("invalid CA, does not exist")
 
 	//Server
-	errGetCAs    = errors.New("unable to get CAs from secret engine")
+	ErrGetCAs    = errors.New("unable to get CAs from secret engine")
 	errGetCAInfo = errors.New("unable to get CA information from secret engine")
 	errDeleteCA  = errors.New("unable to delete CA from secret engine")
 )
@@ -43,7 +43,7 @@ func (s *caService) Health(ctx context.Context) bool {
 func (s *caService) GetCAs(ctx context.Context) (secrets.CAs, error) {
 	CAs, err := s.secrets.GetCAs()
 	if err != nil {
-		return secrets.CAs{}, errGetCAs
+		return secrets.CAs{}, ErrGetCAs
 	}
 	return CAs, nil
 

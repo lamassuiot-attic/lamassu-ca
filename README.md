@@ -88,3 +88,6 @@ docker run -p 8087:8087
 ```
 ## Kubernetes
 [Lamassu](https://www.lamassu.io) can be run in Kubernetes deploying the objects defined in `k8s/` directory. `provision-k8s.sh` script provides some useful guidelines and commands to deploy the objects in a local [Minikube](https://github.com/kubernetes/minikube) Kubernetes cluster.
+
+## Documentation
+[Swagger](https://swagger.io/) - [OpenAPI](https://www.openapis.org/) 2.0 documentation is available in `https://ca:8087/v1/docs`. Swagger 2.0 specification JSON is created from source code annotations using [go-swagger](https://github.com/go-swagger/go-swagger) package.   

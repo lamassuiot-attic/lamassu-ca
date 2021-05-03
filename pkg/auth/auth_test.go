@@ -5,8 +5,8 @@ import (
 	"io/ioutil"
 	"testing"
 
-	"github.com/lamassuiot/enroller/pkg/ca/configs"
-	"github.com/lamassuiot/enroller/pkg/enroller/crypto"
+	"github.com/lamassuiot/lamassu-ca/pkg/configs"
+	"github.com/lamassuiot/lamassu-ca/pkg/utils"
 
 	stdjwt "github.com/dgrijalva/jwt-go"
 )
@@ -54,7 +54,7 @@ func loadAuthPublicKey(t *testing.T) *rsa.PublicKey {
 		t.Fatal("Unable to read public key file")
 	}
 
-	key, err := crypto.ParseKeycloakPublicKey([]byte(crypto.PublicKeyHeader + "\n" + string(fileKey) + "\n" + crypto.PublicKeyFooter))
+	key, err := utils.ParseKeycloakPublicKey([]byte(utils.PublicKeyHeader + "\n" + string(fileKey) + "\n" + utils.PublicKeyFooter))
 	if err != nil {
 		t.Fatal("Unable to parse public key")
 	}

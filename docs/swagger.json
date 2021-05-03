@@ -1,0 +1,252 @@
+{
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "schemes": [
+    "https"
+  ],
+  "swagger": "2.0",
+  "info": {
+    "description": "The purpose of Lamassu CA is to provide a wrapper API to manage\nCAs registered in Lamassu PKI.",
+    "title": "Lamassu CA.",
+    "license": {
+      "name": "MPL-2.0",
+      "url": "https://opensource.org/licenses/MPL-2.0"
+    },
+    "version": "0.0.1"
+  },
+  "basePath": "/v1",
+  "paths": {
+    "/cas": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lamassu-ca"
+        ],
+        "summary": "Gets CAs information from Vault.",
+        "operationId": "getCAs",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/getCAsResponse"
+          },
+          "500": {
+            "description": ""
+          },
+          "default": {
+            "$ref": "#/responses/getCAsResponse"
+          }
+        }
+      }
+    },
+    "/cas/{ca}": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lamassu-ca"
+        ],
+        "summary": "Gets detailed CA information from Vault.",
+        "operationId": "getCAInfo",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/getCAInfoResponse"
+          },
+          "400": {
+            "description": ""
+          },
+          "500": {
+            "description": ""
+          },
+          "default": {
+            "$ref": "#/responses/getCAInfoResponse"
+          }
+        }
+      },
+      "delete": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lamassu-ca"
+        ],
+        "summary": "Deletes or revokes CA from Vault.",
+        "operationId": "deleteCA",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/deleteCAResponse"
+          },
+          "500": {
+            "description": ""
+          },
+          "default": {
+            "$ref": "#/responses/deleteCAResponse"
+          }
+        }
+      }
+    },
+    "/v1/health": {
+      "get": {
+        "produces": [
+          "application/json"
+        ],
+        "tags": [
+          "lamassu-ca"
+        ],
+        "summary": "Gets service health.",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "$ref": "#/responses/healthResponse"
+          },
+          "default": {
+            "$ref": "#/responses/healthResponse"
+          }
+        }
+      }
+    }
+  },
+  "definitions": {
+    "CA": {
+      "description": "CA represents a registered CA minimum information",
+      "type": "object",
+      "required": [
+        "ca_name"
+      ],
+      "properties": {
+        "ca_name": {
+          "description": "The name of the CA",
+          "type": "string",
+          "x-go-name": "Name",
+          "example": "Lamassu-Root-CA1-RSA4096"
+        }
+      },
+      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
+    },
+    "CAInfo": {
+      "description": "CAInfo represents the detailed information about a CA",
+      "type": "object",
+      "required": [
+        "cn",
+        "key_type",
+        "key_bits",
+        "o",
+        "c",
+        "st",
+        "l"
+      ],
+      "properties": {
+        "c": {
+          "description": "Country Name of the CA certificate",
+          "type": "string",
+          "x-go-name": "C",
+          "example": "ES"
+        },
+        "cn": {
+          "description": "Common name of the CA certificate",
+          "type": "string",
+          "x-go-name": "CN",
+          "example": "Lamassu-Root-CA1-RSA4096"
+        },
+        "key_bits": {
+          "description": "Length used to create CA key",
+          "type": "integer",
+          "format": "int64",
+          "x-go-name": "KeyBits",
+          "example": 4096
+        },
+        "key_type": {
+          "description": "Algorithm used to create CA key",
+          "type": "string",
+          "x-go-name": "KeyType",
+          "example": "RSA"
+        },
+        "l": {
+          "description": "Locality of the CA certificate",
+          "type": "string",
+          "x-go-name": "L",
+          "example": "Arrasate"
+        },
+        "o": {
+          "description": "Organization of the CA certificate",
+          "type": "string",
+          "x-go-name": "O",
+          "example": "Lamassu IoT"
+        },
+        "st": {
+          "description": "State of the CA certificate",
+          "type": "string",
+          "x-go-name": "ST",
+          "example": "Guipuzcoa"
+        }
+      },
+      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
+    },
+    "CAs": {
+      "description": "CAs represents a list of CAs with minimum information",
+      "type": "object",
+      "properties": {
+        "CAs": {
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/CA"
+          }
+        }
+      },
+      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
+    },
+    "GetCAInfoResponse": {
+      "type": "object",
+      "properties": {
+        "CAInfo": {
+          "$ref": "#/definitions/CAInfo"
+        }
+      },
+      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
+    },
+    "GetCAsResponse": {
+      "type": "object",
+      "properties": {
+        "CAs": {
+          "$ref": "#/definitions/CAs"
+        }
+      },
+      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
+    },
+    "HealthResponse": {
+      "type": "object",
+      "properties": {
+        "healthy": {
+          "type": "boolean",
+          "x-go-name": "Healthy"
+        }
+      },
+      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
+    }
+  },
+  "responses": {
+    "getCAInfoResponse": {
+      "description": "A GetCAInfoResponse returns detailed information about a CA",
+      "schema": {
+        "$ref": "#/definitions/GetCAInfoResponse"
+      }
+    },
+    "getCAsResponse": {
+      "description": "A GetCAsResponse returns a list of CAs",
+      "schema": {
+        "$ref": "#/definitions/GetCAsResponse"
+      }
+    },
+    "healthResponse": {
+      "description": "A HealthResponse returns if the service is healthy",
+      "schema": {
+        "$ref": "#/definitions/HealthResponse"
+      }
+    }
+  }
+}

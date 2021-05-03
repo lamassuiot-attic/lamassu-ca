@@ -5,7 +5,10 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path"
 	"syscall"
+
+	_ "github.com/lamassuiot/lamassu-ca/pkg/docs"
 
 	"github.com/lamassuiot/lamassu-ca/pkg/api"
 	"github.com/lamassuiot/lamassu-ca/pkg/auth"
@@ -16,11 +19,13 @@ import (
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-openapi/runtime/middleware"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
 
+//go:generate swagger generate spec
 func main() {
 	var logger log.Logger
 	{
@@ -99,8 +104,14 @@ func main() {
 	mux := http.NewServeMux()
 
 	mux.Handle("/v1/", api.MakeHTTPHandler(s, log.With(logger, "component", "HTTPS"), auth, tracer))
+	http.Handle("/v1/docs", middleware.SwaggerUI(middleware.SwaggerUIOpts{
+		BasePath: "/v1/",
+		SpecURL:  path.Join("/", "swagger.json"),
+		Path:     "docs",
+	}, mux))
 	http.Handle("/", accessControl(mux, cfg.EnrollerUIProtocol, cfg.EnrollerUIHost, cfg.EnrollerUIPort))
 	http.Handle("/metrics", promhttp.Handler())
+	http.Handle("/swagger.json", http.FileServer(http.Dir("./docs")))
 
 	errs := make(chan error)
 	go func() {

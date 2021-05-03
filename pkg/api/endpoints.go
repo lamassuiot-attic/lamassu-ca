@@ -52,7 +52,7 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 func MakeHealthEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		healthy := s.Health(ctx)
-		return healthResponse{Healthy: healthy}, nil
+		return HealthResponse{Healthy: healthy}, nil
 	}
 }
 
@@ -60,7 +60,7 @@ func MakeGetCAsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		_ = request.(getCAsRequest)
 		CAs, err := s.GetCAs(ctx)
-		return getCAsResponse{CAs: CAs, Err: err}, nil
+		return GetCAsResponse{CAs: CAs, Err: err}, nil
 	}
 }
 
@@ -68,7 +68,7 @@ func MakeGetCAInfoEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(getCAInfoRequest)
 		CAInfo, err := s.GetCAInfo(ctx, req.CA)
-		return getCAInfoResponse{CAInfo: CAInfo, Err: err}, nil
+		return GetCAInfoResponse{CAInfo: CAInfo, Err: err}, nil
 	}
 }
 
@@ -82,37 +82,37 @@ func MakeDeleteCAEndpoint(s Service) endpoint.Endpoint {
 
 type healthRequest struct{}
 
-type healthResponse struct {
+type HealthResponse struct {
 	Healthy bool  `json:"healthy,omitempty"`
-	Err     error `json:"err,omitempty"`
+	Err     error `json:"-"`
 }
 
 type getCAsRequest struct{}
 
-type getCAsResponse struct {
+type GetCAsResponse struct {
 	CAs secrets.CAs
-	Err error
+	Err error `json:"-"`
 }
 
-func (r getCAsResponse) error() error { return r.Err }
+func (r GetCAsResponse) error() error { return r.Err }
 
 type getCAInfoRequest struct {
 	CA string
 }
 
-type getCAInfoResponse struct {
+type GetCAInfoResponse struct {
 	CAInfo secrets.CAInfo
-	Err    error
+	Err    error `json:"-"`
 }
 
-func (r getCAInfoResponse) error() error { return r.Err }
+func (r GetCAInfoResponse) error() error { return r.Err }
 
 type deleteCARequest struct {
 	CA string
 }
 
 type deleteCAResponse struct {
-	Err error
+	Err error `json:"-"`
 }
 
 func (r deleteCAResponse) error() error { return r.Err }

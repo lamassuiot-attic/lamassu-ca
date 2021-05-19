@@ -15,6 +15,8 @@ import (
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/helper/namespace"
+	"github.com/hashicorp/vault/vault"
 )
 
 type vaultSecrets struct {
@@ -139,9 +141,31 @@ func (vs *vaultSecrets) CreateCA(CAName string, CAInfo secrets.CAInfo) (bool, er
 		level.Error(vs.logger).Log("err", err, "msg", "Error while modifying enroller-ca-policy policy on Vault")
 		return false, err
 	}
-	level.Info(vs.logger).Log("Enroller policy: " + enrollerPolicy)
 
-	err = vs.client.Sys().PutPolicy(CAName+"-policy", "path \""+CAName+"*\" {\n capabilities=[\"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}")
+	policy, err := vault.ParseACLPolicy(namespace.RootNamespace, enrollerPolicy)
+	level.Info(vs.logger).Log(policy.Raw)
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Error while parsing enroller-ca-policy policy")
+		return false, err
+	}
+
+	rootPathRules := vault.PathRules{Path: CAName + "/root/*", Capabilities: []string{"read", "create", "delete", "sudo"}, Permissions: &vault.ACLPermissions{CapabilitiesBitmap: 80}}
+	caPathRules := vault.PathRules{Path: CAName + "/cert/ca", Capabilities: []string{"read", "create", "delete", "sudo"}, Permissions: &vault.ACLPermissions{CapabilitiesBitmap: 80}}
+	enrollerPathRules := vault.PathRules{Path: CAName + "/roles/enroller", Capabilities: []string{"read", "create", "delete", "sudo"}, Permissions: &vault.ACLPermissions{CapabilitiesBitmap: 80}}
+	policy.Paths = append(policy.Paths, &rootPathRules, &caPathRules, &enrollerPathRules)
+	/*
+		for i, p := range policy.Paths {
+			level.Info(vs.logger).Log(i, p)
+		}
+	*/
+	level.Info(vs.logger).Log(policy.Raw)
+
+	err = vs.client.Sys().PutPolicy("enroller-ca-policy", policy.Raw)
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Error while modifying enroller-ca-policy policy on Vault")
+		return false, err
+	}
+	err = vs.client.Sys().PutPolicy("enroller-ca-policy", policy.Raw)
 	if err != nil {
 		level.Error(vs.logger).Log("err", err, "msg", "Error while modifying enroller-ca-policy policy on Vault")
 		return false, err

@@ -1,6 +1,49 @@
-{
-    "Enroller policy: path \"sys/mounts/*\" {\n capabilities=[\"read\", \"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}\npath \"sys/policies/*\" {\n capabilities=[\"read\", \"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}\npath \"sys/policies/acl/*\" {\n capabilities=[\"read\", \"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}\npath \"pki/*\" {\n  capabilities = [\"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}\npath \"sys/mounts\" {\n capabilities=[\"read\", \"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}\npath \"Lamassu-Root-CA1-RSA4096/cert/ca\" {\n capabilities=[\"read\"]\n}\npath \"Lamassu-Root-CA2-RSA2048/cert/ca\" {\n capabilities=[\"read\"]\n}\npath \"Lamassu-Root-CA3-ECC384/cert/ca\" {\n capabilities=[\"read\"]\n}\npath \"Lamassu-Root-CA4-ECC256/cert/ca\" {\n capabilities=[\"read\"]\n}\npath \"Lamassu-Root-CA1-RSA4096/root\" {\n capabilities=[\"delete\", \"sudo\"]\n}\npath \"Lamassu-Root-CA2-RSA2048/root\" {\n capabilities=[\"delete\", \"sudo\"]\n}\npath \"Lamassu-Root-CA3-ECC384/root\" {\n capabilities=[\"delete\", \"sudo\"]\n}\npath \"Lamassu-Root-CA4-ECC256/root\" {\n capabilities=[\"delete\", \"sudo\"]\n}": "(MISSING)",
-    "caller": "level.go:63",
-    "level": "info",
-    "ts": "2021-05-19T13:11:44.5848071Z"
-}
+[
+    {
+        "Path": "Lamassu-Root-CA4-ECC256/root",
+        "Policy": "",
+        "Permissions": {
+            "CapabilitiesBitmap": 80,
+            "MinWrappingTTL": 0,
+            "MaxWrappingTTL": 0,
+            "AllowedParameters": null,
+            "DeniedParameters": null,
+            "RequiredParameters": null,
+            "MFAMethods": null,
+            "ControlGroup": null
+        },
+        "IsPrefix": false,
+        "HasSegmentWildcards": false,
+        "Capabilities": [
+            "delete",
+            "sudo"
+        ],
+        "MinWrappingTTLHCL": null,
+        "MaxWrappingTTLHCL": null,
+        "AllowedParametersHCL": null,
+        "DeniedParametersHCL": null,
+        "RequiredParametersHCL": null,
+        "MFAMethodsHCL": null,
+        "ControlGroupHCL": null
+    },
+    {
+        "Path": "newca1/root/*",
+        "Policy": "",
+        "Permissions": null,
+        "IsPrefix": false,
+        "HasSegmentWildcards": false,
+        "Capabilities": [
+            "read",
+            "create",
+            "delete",
+            "sudo"
+        ],
+        "MinWrappingTTLHCL": null,
+        "MaxWrappingTTLHCL": null,
+        "AllowedParametersHCL": null,
+        "DeniedParametersHCL": null,
+        "RequiredParametersHCL": null,
+        "MFAMethodsHCL": null,
+        "ControlGroupHCL": null
+    }
+]

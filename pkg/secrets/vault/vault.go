@@ -106,6 +106,7 @@ func (vs *vaultSecrets) GetCAInfo(CA string) (secrets.CAInfo, error) {
 	}
 	level.Info(vs.logger).Log("msg", CA+" certificate obtained from Vault and parsed")
 	CAInfo := secrets.CAInfo{
+		CRT:     resp.Data["certificate"].(string),
 		C:       strings.Join(caCert.Subject.Country, " "),
 		L:       strings.Join(caCert.Subject.Locality, " "),
 		O:       strings.Join(caCert.Subject.Organization, " "),
@@ -117,6 +118,61 @@ func (vs *vaultSecrets) GetCAInfo(CA string) (secrets.CAInfo, error) {
 
 	return CAInfo, nil
 
+}
+
+func (vs *vaultSecrets) CreateCA(CAName string, CAInfo secrets.CAInfo) (bool, error) {
+	mountInput := api.MountInput{Type: "pki", Description: ""}
+	err := vs.client.Sys().Mount(CAName, &mountInput)
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not create a new pki mount point on Vault")
+		return false, err
+	}
+
+	err = vs.client.Sys().PutPolicy(CAName+"-policy", "path \""+CAName+"*\" {\n capabilities=[\"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}")
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not create a new policy for "+CAName+" CA on Vault")
+		return false, err
+	}
+
+	enrollerPolicy, err := vs.client.Sys().GetPolicy("enroller-ca-policy")
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Error while modifying enroller-ca-policy policy on Vault")
+		return false, err
+	}
+	level.Info(vs.logger).Log("Enroller policy: " + enrollerPolicy)
+
+	err = vs.client.Sys().PutPolicy(CAName+"-policy", "path \""+CAName+"*\" {\n capabilities=[\"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}")
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Error while modifying enroller-ca-policy policy on Vault")
+		return false, err
+	}
+
+	_, err = vs.client.Logical().Write(CAName+"/roles/enroller", map[string]interface{}{
+		"allow_any_name": true,
+		"ttl":            "175200h", //30Años
+		"max_ttl":        "262800h", //20Años
+		"key_type":       "any",
+	})
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not create a new role for "+CAName+" CA on Vault")
+		return false, err
+	}
+
+	_, err = vs.client.Logical().Write(CAName+"/root/generate/internal", map[string]interface{}{
+		"common_name":  CAInfo.C,
+		"key_type":     CAInfo.KeyType,
+		"key_bits":     CAInfo.KeyBits,
+		"organization": CAInfo.O,
+		"country":      CAInfo.OU,
+		"province":     CAInfo.ST,
+		"locality":     CAInfo.L,
+		"ttl":          "262800h",
+	})
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
+		return false, err
+	}
+	return true, nil
 }
 
 func (vs *vaultSecrets) DeleteCA(CA string) error {

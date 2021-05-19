@@ -10,16 +10,15 @@ import (
 
 	_ "github.com/lamassuiot/lamassu-ca/pkg/docs"
 
+	"github.com/go-kit/kit/log"
+	"github.com/go-kit/kit/log/level"
+	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
+	"github.com/go-openapi/runtime/middleware"
 	"github.com/lamassuiot/lamassu-ca/pkg/api"
 	"github.com/lamassuiot/lamassu-ca/pkg/auth"
 	"github.com/lamassuiot/lamassu-ca/pkg/configs"
 	"github.com/lamassuiot/lamassu-ca/pkg/discovery/consul"
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets/vault"
-
-	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
-	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
-	"github.com/go-openapi/runtime/middleware"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	jaegercfg "github.com/uber/jaeger-client-go/config"

@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/lamassuiot/lamassu-ca/pkg/auth"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/tracing/opentracing"
@@ -61,6 +62,13 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAInfo", logger)))...,
 	))
 
+	r.Methods("POST").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.CreateCAEndpoint),
+		decodeCreateCARequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "CreateCA", logger)))...,
+	))
+
 	r.Methods("DELETE").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
 		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.DeleteCAEndpoint),
 		decodeDeleteCARequest,
@@ -88,6 +96,21 @@ func decodeGetCAInfoRequest(ctx context.Context, r *http.Request) (request inter
 		return nil, errCAName
 	}
 	return getCAInfoRequest{CA: CA}, nil
+}
+
+func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	vars := mux.Vars(r)
+	var caRequestInfo secrets.CAInfo
+	json.NewDecoder(r.Body).Decode((&caRequestInfo))
+	if err != nil {
+		return nil, errors.New("Cannot decode JSON request")
+	}
+
+	CA, ok := vars["ca"]
+	if !ok {
+		return nil, errCAName
+	}
+	return createCARequest{CAName: CA, CAInfo: caRequestInfo}, nil
 }
 
 func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {

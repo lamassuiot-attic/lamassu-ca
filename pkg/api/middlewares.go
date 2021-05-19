@@ -63,6 +63,19 @@ func (mw loggingMiddleware) GetCAInfo(ctx context.Context, CA string) (CAInfo se
 	return mw.next.GetCAInfo(ctx, CA)
 }
 
+func (mw loggingMiddleware) CreateCA(ctx context.Context, CAName string, CAInfo secrets.CAInfo) (Result bool, err error) {
+	defer func(begin time.Time) {
+		mw.logger.Log(
+			"method", "CreateCA",
+			"ca_name", CAName,
+			"ca_info", CAInfo,
+			"result", Result,
+			"err", err,
+		)
+	}(time.Now())
+	return mw.next.CreateCA(ctx, CAName, CAInfo)
+}
+
 func (mw loggingMiddleware) DeleteCA(ctx context.Context, CA string) (err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(

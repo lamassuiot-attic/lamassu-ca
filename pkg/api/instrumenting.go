@@ -56,6 +56,16 @@ func (mw *instrumentingMiddleware) GetCAInfo(ctx context.Context, CA string) (CA
 	return mw.next.GetCAInfo(ctx, CA)
 }
 
+func (mw *instrumentingMiddleware) CreateCA(ctx context.Context, CAName string, CAInfo secrets.CAInfo) (Result bool, err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "CreateCA", "error", fmt.Sprint(err != nil)}
+		mw.requestCount.With(lvs...).Add(1)
+		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	return mw.next.CreateCA(ctx, CAName, CAInfo)
+}
+
 func (mw *instrumentingMiddleware) DeleteCA(ctx context.Context, CA string) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "DeleteCA", "error", fmt.Sprint(err != nil)}

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"sync"
-
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 )
 
@@ -12,6 +11,7 @@ type Service interface {
 	Health(ctx context.Context) bool
 	GetCAs(ctx context.Context) (secrets.CAs, error)
 	GetCAInfo(ctx context.Context, CA string) (secrets.CAInfo, error)
+	CreateCA(ctx context.Context, CAName string, CAInfo secrets.CAInfo) (bool, error)
 	DeleteCA(ctx context.Context, CA string) error
 }
 
@@ -59,6 +59,14 @@ func (s *caService) GetCAInfo(ctx context.Context, CA string) (secrets.CAInfo, e
 	}
 	return CAInfo, nil
 
+}
+
+func (s *caService) CreateCA(ctx context.Context, CAName string, CAInfo secrets.CAInfo) (bool, error) {
+	res, err := s.secrets.CreateCA(CAName, CAInfo)
+	if err != nil {
+		return false, err
+	}
+	return res, nil
 }
 
 func (s *caService) DeleteCA(ctx context.Context, CA string) error {

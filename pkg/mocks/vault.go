@@ -132,6 +132,7 @@ func (vm *vaultSecretsMock) GetCAInfo(CA string) (secrets.CAInfo, error) {
 		C:       strings.Join(caCert.Subject.Country, " "),
 		L:       strings.Join(caCert.Subject.Locality, " "),
 		O:       strings.Join(caCert.Subject.Organization, " "),
+		OU:      strings.Join(caCert.Subject.OrganizationalUnit, " "),
 		ST:      strings.Join(caCert.Subject.Province, " "),
 		CN:      caCert.Subject.CommonName,
 		KeyType: key,

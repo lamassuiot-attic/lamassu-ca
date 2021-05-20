@@ -135,13 +135,13 @@ func main() {
 
 func accessControl(h http.Handler, enrollerUIProtocol string, enrollerUIHost string, enrollerUIPort string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var uiURL string
+		/*var uiURL string
 		if enrollerUIPort == "" {
 			uiURL = enrollerUIProtocol + "://" + enrollerUIHost
 		} else {
 			uiURL = enrollerUIProtocol + "://" + enrollerUIHost + ":" + enrollerUIPort
-		}
-		w.Header().Set("Access-Control-Allow-Origin", uiURL)
+		}*/
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
 

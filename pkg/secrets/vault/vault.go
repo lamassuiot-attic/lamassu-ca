@@ -1,12 +1,14 @@
 package vault
 
 import (
+	"bytes"
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"math/big"
 	"strconv"
 	"strings"
 
@@ -91,7 +93,7 @@ func (vs *vaultSecrets) GetCAs() (secrets.CAs, error) {
 			_, keyType, keyBits := getPublicKeyInfo(cert)
 
 			CAs.CAs = append(CAs.CAs, secrets.CA{
-				SerialNumber: cert.Subject.SerialNumber,
+				SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
 				CaName:       caName,
 				C:            strings.Join(cert.Subject.Country, " "),
 				ST:           strings.Join(cert.Subject.Province, " "),
@@ -202,6 +204,23 @@ func (vs *vaultSecrets) DeleteCA(ca string) error {
 	return nil
 }
 
+func insertNth(s string, n int) string {
+	var buffer bytes.Buffer
+	var n_1 = n - 1
+	var l_1 = len(s) - 1
+	for i, rune := range s {
+		buffer.WriteRune(rune)
+		if i%n == n_1 && i != l_1 {
+			buffer.WriteRune('-')
+		}
+	}
+	return buffer.String()
+}
+
+func toHexInt(n *big.Int) string {
+	return fmt.Sprintf("%x", n) // or %X or upper case
+}
+
 func DecodeCert(caName string, cert []byte) (x509.Certificate, error) {
 	pemBlock, _ := pem.Decode(cert)
 	if pemBlock == nil {
@@ -232,13 +251,11 @@ func getPublicKeyInfo(cert x509.Certificate) (string, string, int) {
 		keyBits = cert.PublicKey.(*ecdsa.PublicKey).Params().BitSize
 	}
 	publicKeyDer, _ := x509.MarshalPKIXPublicKey(cert.PublicKey)
-	fmt.Println(publicKeyDer)
 	publicKeyBlock := pem.Block{
 		Type:  "PUBLIC KEY",
 		Bytes: publicKeyDer,
 	}
 	publicKeyPem := string(pem.EncodeToMemory(&publicKeyBlock))
-	fmt.Println(publicKeyPem)
 
 	return publicKeyPem, key, keyBits
 }

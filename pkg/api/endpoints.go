@@ -68,7 +68,7 @@ func MakeGetCAsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		_ = request.(getCAsRequest)
 		CAs, err := s.GetCAs(ctx)
-		return GetCAsResponse{CAs: CAs, Err: err}, nil
+		return CAs.CAs, err
 	}
 }
 

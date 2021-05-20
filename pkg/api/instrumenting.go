@@ -46,24 +46,24 @@ func (mw *instrumentingMiddleware) GetCAs(ctx context.Context) (CAs secrets.CAs,
 	return mw.next.GetCAs(ctx)
 }
 
-func (mw *instrumentingMiddleware) GetCAInfo(ctx context.Context, CA string) (CAInfo secrets.CAInfo, err error) {
+func (mw *instrumentingMiddleware) GetCACrt(ctx context.Context, caName string) (crt secrets.CACrt, err error) {
 	defer func(begin time.Time) {
-		lvs := []string{"method", "GetCAInfo", "error", fmt.Sprint(err != nil)}
+		lvs := []string{"method", "GetCACrt", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.GetCAInfo(ctx, CA)
+	return mw.next.GetCACrt(ctx, caName)
 }
 
-func (mw *instrumentingMiddleware) CreateCA(ctx context.Context, CAName string, CAInfo secrets.CAInfo) (Result bool, err error) {
+func (mw *instrumentingMiddleware) CreateCA(ctx context.Context, caName string, ca secrets.CA) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "CreateCA", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.CreateCA(ctx, CAName, CAInfo)
+	return mw.next.CreateCA(ctx, caName, ca)
 }
 
 func (mw *instrumentingMiddleware) DeleteCA(ctx context.Context, CA string) (err error) {

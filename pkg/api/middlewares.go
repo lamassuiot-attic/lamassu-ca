@@ -48,32 +48,29 @@ func (mw loggingMiddleware) GetCAs(ctx context.Context) (CAs secrets.CAs, err er
 	return mw.next.GetCAs(ctx)
 }
 
-func (mw loggingMiddleware) GetCAInfo(ctx context.Context, CA string) (CAInfo secrets.CAInfo, err error) {
+func (mw loggingMiddleware) GetCACrt(ctx context.Context, caName string) (crt secrets.CACrt, err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
-			"method", "GetCAInfo",
-			"ca_name", CA,
-			"cn", CAInfo.CN,
-			"key_type", CAInfo.KeyType,
-			"key_bits", CAInfo.KeyBits,
+			"method", "GetCACrt",
+			"ca_name", caName,
+			"crt", crt,
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.GetCAInfo(ctx, CA)
+	return mw.next.GetCACrt(ctx, caName)
 }
 
-func (mw loggingMiddleware) CreateCA(ctx context.Context, CAName string, CAInfo secrets.CAInfo) (Result bool, err error) {
+func (mw loggingMiddleware) CreateCA(ctx context.Context, caName string, ca secrets.CA) (err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "CreateCA",
-			"ca_name", CAName,
-			"ca_info", CAInfo,
-			"result", Result,
+			"ca_name", caName,
+			"ca_info", ca,
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.CreateCA(ctx, CAName, CAInfo)
+	return mw.next.CreateCA(ctx, caName, ca)
 }
 
 func (mw loggingMiddleware) DeleteCA(ctx context.Context, CA string) (err error) {

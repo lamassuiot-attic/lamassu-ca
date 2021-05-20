@@ -4,15 +4,16 @@ import (
 	"context"
 	"errors"
 	"sync"
+
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 )
 
 type Service interface {
 	Health(ctx context.Context) bool
 	GetCAs(ctx context.Context) (secrets.CAs, error)
-	GetCAInfo(ctx context.Context, CA string) (secrets.CAInfo, error)
-	CreateCA(ctx context.Context, CAName string, CAInfo secrets.CAInfo) (bool, error)
-	DeleteCA(ctx context.Context, CA string) error
+	GetCACrt(ctx context.Context, caName string) (secrets.CACrt, error)
+	CreateCA(ctx context.Context, caName string, ca secrets.CA) error
+	DeleteCA(ctx context.Context, caName string) error
 }
 
 type caService struct {
@@ -49,24 +50,24 @@ func (s *caService) GetCAs(ctx context.Context) (secrets.CAs, error) {
 
 }
 
-func (s *caService) GetCAInfo(ctx context.Context, CA string) (secrets.CAInfo, error) {
-	CAInfo, err := s.secrets.GetCAInfo(CA)
-	if (secrets.CAInfo{}) == CAInfo {
-		return CAInfo, errInvalidCA
+func (s *caService) GetCACrt(ctx context.Context, caName string) (secrets.CACrt, error) {
+	caCrt, err := s.secrets.GetCACrt(caName)
+	if (secrets.CACrt{}) == caCrt {
+		return caCrt, errInvalidCA
 	}
 	if err != nil {
-		return secrets.CAInfo{}, errGetCAInfo
+		return secrets.CACrt{}, errGetCAInfo
 	}
-	return CAInfo, nil
+	return caCrt, nil
 
 }
 
-func (s *caService) CreateCA(ctx context.Context, CAName string, CAInfo secrets.CAInfo) (bool, error) {
-	res, err := s.secrets.CreateCA(CAName, CAInfo)
+func (s *caService) CreateCA(ctx context.Context, caName string, ca secrets.CA) error {
+	err := s.secrets.CreateCA(caName, ca)
 	if err != nil {
-		return false, err
+		return err
 	}
-	return res, nil
+	return nil
 }
 
 func (s *caService) DeleteCA(ctx context.Context, CA string) error {

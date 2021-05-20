@@ -20,8 +20,8 @@ type getCAsResponseWrapper struct {
 
 // A GetCAInfoResponse returns detailed information about a CA
 // swagger:response getCAInfoResponse
-type getCAInfoResponseWrapper struct {
+type getCACrtResponseWrapper struct {
 	// The CA detailed information
 	// in: body
-	Body api.GetCAInfoResponse
+	Body api.GetCACrtResponse
 }

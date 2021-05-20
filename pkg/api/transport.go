@@ -56,10 +56,10 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 	))
 
 	r.Methods("GET").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetCAInfoEndpoint),
-		decodeGetCAInfoRequest,
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetCACrtEndpoint),
+		decodeGetCACrtRequest,
 		encodeResponse,
-		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAInfo", logger)))...,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCACrt", logger)))...,
 	))
 
 	r.Methods("POST").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
@@ -89,28 +89,28 @@ func decodeGetCAsRequest(ctx context.Context, r *http.Request) (request interfac
 	return req, nil
 }
 
-func decodeGetCAInfoRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+func decodeGetCACrtRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
 	vars := mux.Vars(r)
 	CA, ok := vars["ca"]
 	if !ok {
 		return nil, errCAName
 	}
-	return getCAInfoRequest{CA: CA}, nil
+	return getCACrtRequest{CA: CA}, nil
 }
 
 func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
 	vars := mux.Vars(r)
-	var caRequestInfo secrets.CAInfo
+	var caRequestInfo secrets.CA
 	json.NewDecoder(r.Body).Decode((&caRequestInfo))
 	if err != nil {
 		return nil, errors.New("Cannot decode JSON request")
 	}
 
-	CA, ok := vars["ca"]
+	caName, ok := vars["ca"]
 	if !ok {
 		return nil, errCAName
 	}
-	return createCARequest{CAName: CA, CAInfo: caRequestInfo}, nil
+	return createCARequest{CAName: caName, CA: caRequestInfo}, nil
 }
 
 func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -126,6 +126,9 @@ func encodeResponse(ctx context.Context, w http.ResponseWriter, response interfa
 	if e, ok := response.(errorer); ok && e.error() != nil {
 		// Not a Go kit transport error, but a business-logic error.
 		// Provide those as HTTP errors.
+
+		// https://medium.com/@ozdemir.zynl/rest-api-error-handling-in-go-behavioral-type-assertion-509d93636afd
+		//
 		encodeError(ctx, e.error(), w)
 
 		return nil

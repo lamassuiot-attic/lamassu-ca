@@ -90,11 +90,13 @@ func (vs *vaultSecrets) GetCAs() (secrets.CAs, error) {
 				continue
 			}
 
-			_, keyType, keyBits := getPublicKeyInfo(cert)
+			pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
 
 			CAs.CAs = append(CAs.CAs, secrets.CA{
 				SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
+				CRT:          resp.Data["certificate"].(string),
 				CaName:       caName,
+				PublicKey:    pubKey,
 				C:            strings.Join(cert.Subject.Country, " "),
 				ST:           strings.Join(cert.Subject.Province, " "),
 				L:            strings.Join(cert.Subject.Locality, " "),
@@ -103,6 +105,7 @@ func (vs *vaultSecrets) GetCAs() (secrets.CAs, error) {
 				CN:           cert.Subject.CommonName,
 				KeyType:      keyType,
 				KeyBits:      keyBits,
+				KeyStrength:  keyStrength,
 			})
 		}
 	}
@@ -122,7 +125,7 @@ func (vs *vaultSecrets) GetCACrt(caName string) (secrets.CACrt, error) {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not decode certificate: perhaps it is malformed")
 		return secrets.CACrt{}, err
 	}
-	pubKey, _, _ := getPublicKeyInfo(cert)
+	pubKey, _, _, _ := getPublicKeyInfo(cert)
 	return secrets.CACrt{CRT: resp.Data["certificate"].(string), PublicKey: pubKey}, nil
 }
 
@@ -177,14 +180,15 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.CA) error {
 	}
 
 	options := map[string]interface{}{
-		"common_name":  ca.C,
-		"key_type":     ca.KeyType,
-		"key_bits":     ca.KeyBits,
-		"organization": ca.O,
-		"country":      ca.OU,
-		"province":     ca.ST,
-		"locality":     ca.L,
-		"ttl":          "262800h",
+		"key_type":          ca.KeyType,
+		"key_bits":          ca.KeyBits,
+		"country":           ca.C,
+		"province":          ca.ST,
+		"locality":          ca.L,
+		"organization":      ca.O,
+		"organization_unit": ca.OU,
+		"common_name":       ca.CN,
+		"ttl":               "262800h",
 	}
 	_, err = vs.client.Logical().Write(CAName+"/root/generate/internal", options)
 	if err != nil {
@@ -241,7 +245,7 @@ func DecodeCert(caName string, cert []byte) (x509.Certificate, error) {
 	return *caCert, nil
 }
 
-func getPublicKeyInfo(cert x509.Certificate) (string, string, int) {
+func getPublicKeyInfo(cert x509.Certificate) (string, string, int, string) {
 	key := cert.PublicKeyAlgorithm.String()
 	var keyBits int
 	switch key {
@@ -257,7 +261,27 @@ func getPublicKeyInfo(cert x509.Certificate) (string, string, int) {
 	}
 	publicKeyPem := string(pem.EncodeToMemory(&publicKeyBlock))
 
-	return publicKeyPem, key, keyBits
+	var keyStrength string = "unknown"
+	switch key {
+	case "RSA":
+		if keyBits <= 2048 {
+			keyStrength = "low"
+		} else if keyBits > 2048 && keyBits <= 3072 {
+			keyStrength = "medium"
+		} else {
+			keyStrength = "high"
+		}
+	case "ECDSA":
+		if keyBits <= 128 {
+			keyStrength = "low"
+		} else if keyBits > 128 && keyBits <= 256 {
+			keyStrength = "medium"
+		} else {
+			keyStrength = "high"
+		}
+	}
+
+	return publicKeyPem, key, keyBits, keyStrength
 }
 
 func PolicyToString(policy vault.Policy) string {

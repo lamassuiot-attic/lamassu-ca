@@ -188,7 +188,7 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.CA) error {
 		"organization":      ca.O,
 		"organization_unit": ca.OU,
 		"common_name":       ca.CN,
-		"ttl":               "262800h",
+		"ttl":               ca.TTL,
 	}
 	_, err = vs.client.Logical().Write(CAName+"/root/generate/internal", options)
 	if err != nil {

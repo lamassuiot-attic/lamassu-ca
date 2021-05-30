@@ -141,12 +141,19 @@ func encodeError(_ context.Context, err error, w http.ResponseWriter) {
 	if err == nil {
 		panic("encodeError with nil error")
 	}
-	http.Error(w, err.Error(), codeFrom(err))
+	//http.Error(w, err.Error(), codeFrom(err))
+	w.WriteHeader(codeFrom(err))
+	json.NewEncoder(w).Encode(errorWrapper{Error: err.Error()})
+
+}
+
+type errorWrapper struct {
+	Error string `json:"error"`
 }
 
 func codeFrom(err error) int {
 	switch err {
-	case errCAName:
+	case ErrGetCAs:
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError

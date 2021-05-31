@@ -69,6 +69,13 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "CreateCA", logger)))...,
 	))
 
+	r.Methods("POST").Path("/v1/cas/import/{ca}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.ImportCAEndpoint),
+		decodeImportCARequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "ImportCA", logger)))...,
+	))
+
 	r.Methods("DELETE").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
 		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.DeleteCAEndpoint),
 		decodeDeleteCARequest,
@@ -111,6 +118,21 @@ func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interf
 		return nil, errCAName
 	}
 	return createCARequest{CAName: caName, CA: caRequestInfo}, nil
+}
+
+func decodeImportCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	vars := mux.Vars(r)
+	var importCaRequest secrets.CAImport
+	json.NewDecoder(r.Body).Decode((&importCaRequest))
+	if err != nil {
+		return nil, errors.New("Cannot decode JSON request")
+	}
+
+	caName, ok := vars["ca"]
+	if !ok {
+		return nil, errCAName
+	}
+	return importCARequest{CAName: caName, CAImport: importCaRequest}, nil
 }
 
 func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {

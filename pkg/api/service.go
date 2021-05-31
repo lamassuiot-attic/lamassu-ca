@@ -13,6 +13,7 @@ type Service interface {
 	GetCAs(ctx context.Context) (secrets.CAs, error)
 	GetCACrt(ctx context.Context, caName string) (secrets.CACrt, error)
 	CreateCA(ctx context.Context, caName string, ca secrets.CA) error
+	ImportCA(ctx context.Context, caName string, ca secrets.CAImport) error
 	DeleteCA(ctx context.Context, caName string) error
 }
 
@@ -64,6 +65,13 @@ func (s *caService) GetCACrt(ctx context.Context, caName string) (secrets.CACrt,
 
 func (s *caService) CreateCA(ctx context.Context, caName string, ca secrets.CA) error {
 	err := s.secrets.CreateCA(caName, ca)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (s *caService) ImportCA(ctx context.Context, caName string, caImport secrets.CAImport) error {
+	err := s.secrets.ImportCA(caName, caImport)
 	if err != nil {
 		return err
 	}

@@ -73,6 +73,18 @@ func (mw loggingMiddleware) CreateCA(ctx context.Context, caName string, ca secr
 	return mw.next.CreateCA(ctx, caName, ca)
 }
 
+func (mw loggingMiddleware) ImportCA(ctx context.Context, caName string, ca secrets.CAImport) (err error) {
+	defer func(begin time.Time) {
+		mw.logger.Log(
+			"method", "CreateCA",
+			"ca_name", caName,
+			//"ca_bundle", ca, // THIS CAN BE A SECURITY FLAW
+			"err", err,
+		)
+	}(time.Now())
+	return mw.next.ImportCA(ctx, caName, ca)
+}
+
 func (mw loggingMiddleware) DeleteCA(ctx context.Context, CA string) (err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(

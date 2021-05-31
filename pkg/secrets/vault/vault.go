@@ -130,6 +130,36 @@ func (vs *vaultSecrets) GetCACrt(caName string) (secrets.CACrt, error) {
 }
 
 func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.CA) error {
+	initPkiSecret(vs, CAName)
+	options := map[string]interface{}{
+		"key_type":          ca.KeyType,
+		"key_bits":          ca.KeyBits,
+		"country":           ca.C,
+		"province":          ca.ST,
+		"locality":          ca.L,
+		"organization":      ca.O,
+		"organization_unit": ca.OU,
+		"common_name":       ca.CN,
+		"ttl":               "262800h",
+	}
+	_, err := vs.client.Logical().Write(CAName+"/root/generate/internal", options)
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
+		return err
+	}
+	return nil
+}
+
+func (vs *vaultSecrets) ImportCA(CAName string, caImport secrets.CAImport) error {
+	initPkiSecret(vs, CAName)
+	options := map[string]interface{}{
+		"pem_bundle": caImport.PEMBundle,
+	}
+	vs.client.Logical().Write(CAName+"/config/ca", options)
+	return nil
+}
+
+func initPkiSecret(vs *vaultSecrets, CAName string) error {
 	mountInput := api.MountInput{Type: "pki", Description: ""}
 	err := vs.client.Sys().Mount(CAName, &mountInput)
 	if err != nil {
@@ -176,23 +206,6 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.CA) error {
 	})
 	if err != nil {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not create a new role for "+CAName+" CA on Vault")
-		return err
-	}
-
-	options := map[string]interface{}{
-		"key_type":          ca.KeyType,
-		"key_bits":          ca.KeyBits,
-		"country":           ca.C,
-		"province":          ca.ST,
-		"locality":          ca.L,
-		"organization":      ca.O,
-		"organization_unit": ca.OU,
-		"common_name":       ca.CN,
-		"ttl":               "262800h",
-	}
-	_, err = vs.client.Logical().Write(CAName+"/root/generate/internal", options)
-	if err != nil {
-		level.Error(vs.logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
 		return err
 	}
 	return nil

@@ -15,6 +15,7 @@ type Endpoints struct {
 	GetCAsEndpoint   endpoint.Endpoint
 	GetCACrtEndpoint endpoint.Endpoint
 	CreateCAEndpoint endpoint.Endpoint
+	ImportCAEndpoint endpoint.Endpoint
 	DeleteCAEndpoint endpoint.Endpoint
 }
 
@@ -43,6 +44,12 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 		createCAEndpoint = opentracing.TraceServer(otTracer, "CreateCA")(createCAEndpoint)
 	}
 
+	var importCAEndpoint endpoint.Endpoint
+	{
+		importCAEndpoint = MakeImportCAEndpoint(s)
+		importCAEndpoint = opentracing.TraceServer(otTracer, "ImportCA")(importCAEndpoint)
+	}
+
 	var deleteCAEndpoint endpoint.Endpoint
 	{
 		deleteCAEndpoint = MakeDeleteCAEndpoint(s)
@@ -53,6 +60,7 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 		GetCAsEndpoint:   getCAsEndpoint,
 		GetCACrtEndpoint: getCACrtEndpoint,
 		CreateCAEndpoint: createCAEndpoint,
+		ImportCAEndpoint: importCAEndpoint,
 		DeleteCAEndpoint: deleteCAEndpoint,
 	}
 }
@@ -96,6 +104,14 @@ func MakeDeleteCAEndpoint(s Service) endpoint.Endpoint {
 	}
 }
 
+func MakeImportCAEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(importCARequest)
+		err = s.ImportCA(ctx, req.CAName, req.CAImport)
+		return deleteCAResponse{Err: err}, nil
+	}
+}
+
 type healthRequest struct{}
 
 type HealthResponse struct {
@@ -131,7 +147,14 @@ type createCARequest struct {
 	CAName string
 	CA     secrets.CA
 }
+type importCARequest struct {
+	CAName   string
+	CAImport secrets.CAImport
+}
 type createCAResponse struct {
+	Err error `json:"-"`
+}
+type importCAResponse struct {
 	Err error `json:"-"`
 }
 

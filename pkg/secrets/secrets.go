@@ -82,6 +82,10 @@ type CA struct {
 	TTL string `json:"ttl,omitempty"`
 }
 
+type CAImport struct {
+	PEMBundle string `json:"pem_bundle"`
+}
+
 // CAs represents a list of CAs with minimum information
 // swagger:model
 type CAs struct {
@@ -92,5 +96,6 @@ type Secrets interface {
 	GetCAs() (CAs, error)
 	GetCACrt(caName string) (CACrt, error)
 	CreateCA(caName string, ca CA) error
+	ImportCA(caName string, caImport CAImport) error
 	DeleteCA(caName string) error
 }

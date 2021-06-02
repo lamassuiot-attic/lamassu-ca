@@ -55,13 +55,6 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,
 	))
 
-	r.Methods("GET").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetCACrtEndpoint),
-		decodeGetCACrtRequest,
-		encodeResponse,
-		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCACrt", logger)))...,
-	))
-
 	r.Methods("POST").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
 		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.CreateCAEndpoint),
 		decodeCreateCARequest,
@@ -83,6 +76,21 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "DeleteCA", logger)))...,
 	))
 
+	//ALL certs from ALL CAs
+	r.Methods("GET").Path("/v1/cas/issued").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetIssuedCertsEndpoint),
+		decodeGetAllIssuedCertsRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
+	))
+	//ALL certs from ALL CAs
+	r.Methods("GET").Path("/v1/cas/{ca}/issued").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetIssuedCertsEndpoint),
+		decodeGetIssuedCertsRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
+	))
+
 	return r
 }
 
@@ -96,18 +104,22 @@ func decodeGetCAsRequest(ctx context.Context, r *http.Request) (request interfac
 	return req, nil
 }
 
-func decodeGetCACrtRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+func decodeGetIssuedCertsRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
 	vars := mux.Vars(r)
 	CA, ok := vars["ca"]
 	if !ok {
 		return nil, errCAName
 	}
-	return getCACrtRequest{CA: CA}, nil
+	return caRequest{CA: CA}, nil
+}
+
+func decodeGetAllIssuedCertsRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	return nil, nil
 }
 
 func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
 	vars := mux.Vars(r)
-	var caRequestInfo secrets.CA
+	var caRequestInfo secrets.Cert
 	json.NewDecoder(r.Body).Decode((&caRequestInfo))
 	if err != nil {
 		return nil, errors.New("Cannot decode JSON request")

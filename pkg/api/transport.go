@@ -27,7 +27,8 @@ type errorer interface {
 }
 
 var (
-	errCAName = errors.New("ca name not provided")
+	errCAName = errors.New("CA name not provided")
+	errSerial = errors.New("Serial Number not provided")
 )
 
 var claims = &auth.KeycloakClaims{}
@@ -171,7 +172,7 @@ func decodeDeleteCertRequest(ctx context.Context, r *http.Request) (request inte
 	}
 	serialNumber, ok := vars["serialNumber"]
 	if !ok {
-		return nil, errCAName
+		return nil, errSerial
 	}
 	return deleteCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
 }
@@ -192,9 +193,9 @@ func encodeResponse(ctx context.Context, w http.ResponseWriter, response interfa
 }
 
 func encodeError(_ context.Context, err error, w http.ResponseWriter) {
-	if err == nil {
+	/*if err == nil {
 		panic("encodeError with nil error")
-	}
+	}*/
 	//http.Error(w, err.Error(), codeFrom(err))
 	w.WriteHeader(codeFrom(err))
 	json.NewEncoder(w).Encode(errorWrapper{Error: err.Error()})

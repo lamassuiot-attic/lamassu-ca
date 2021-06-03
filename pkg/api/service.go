@@ -10,10 +10,12 @@ import (
 
 type Service interface {
 	Health(ctx context.Context) bool
-	GetCAs(ctx context.Context) (secrets.CAs, error)
-	GetCACrt(ctx context.Context, caName string) (secrets.CACrt, error)
-	CreateCA(ctx context.Context, caName string, ca secrets.CA) error
+	GetCAs(ctx context.Context) (secrets.Certs, error)
+	CreateCA(ctx context.Context, caName string, ca secrets.Cert) error
+	ImportCA(ctx context.Context, caName string, ca secrets.CAImport) error
 	DeleteCA(ctx context.Context, caName string) error
+	GetIssuedCerts(ctx context.Context, caName string) (secrets.Certs, error)
+	DeleteCert(ctx context.Context, caName string, serialNumber string) error
 }
 
 type caService struct {
@@ -41,29 +43,23 @@ func (s *caService) Health(ctx context.Context) bool {
 	return true
 }
 
-func (s *caService) GetCAs(ctx context.Context) (secrets.CAs, error) {
+func (s *caService) GetCAs(ctx context.Context) (secrets.Certs, error) {
 	CAs, err := s.secrets.GetCAs()
 	if err != nil {
-		return secrets.CAs{}, ErrGetCAs
+		return secrets.Certs{}, ErrGetCAs
 	}
 	return CAs, nil
-
 }
 
-func (s *caService) GetCACrt(ctx context.Context, caName string) (secrets.CACrt, error) {
-	caCrt, err := s.secrets.GetCACrt(caName)
-	if (secrets.CACrt{}) == caCrt {
-		return caCrt, errInvalidCA
-	}
-	if err != nil {
-		return secrets.CACrt{}, errGetCAInfo
-	}
-	return caCrt, nil
-
-}
-
-func (s *caService) CreateCA(ctx context.Context, caName string, ca secrets.CA) error {
+func (s *caService) CreateCA(ctx context.Context, caName string, ca secrets.Cert) error {
 	err := s.secrets.CreateCA(caName, ca)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (s *caService) ImportCA(ctx context.Context, caName string, caImport secrets.CAImport) error {
+	err := s.secrets.ImportCA(caName, caImport)
 	if err != nil {
 		return err
 	}
@@ -72,6 +68,22 @@ func (s *caService) CreateCA(ctx context.Context, caName string, ca secrets.CA) 
 
 func (s *caService) DeleteCA(ctx context.Context, CA string) error {
 	err := s.secrets.DeleteCA(CA)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (s *caService) GetIssuedCerts(ctx context.Context, caName string) (secrets.Certs, error) {
+	certs, err := s.secrets.GetIssuedCerts(caName)
+	if err != nil {
+		return secrets.Certs{}, err
+	}
+	return certs, nil
+}
+
+func (s *caService) DeleteCert(ctx context.Context, caName string, serialNumber string) error {
+	err := s.secrets.DeleteCert(caName, serialNumber)
 	if err != nil {
 		return err
 	}

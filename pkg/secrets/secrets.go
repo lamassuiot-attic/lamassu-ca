@@ -1,19 +1,11 @@
 package secrets
 
-// CAInfo represents the detailed information about a CA
-// swagger:model
-type CACrt struct {
-	// PEM ca certificate
-	// required: false
-	// example: ----BEGIN CERTIFICATE-----\nMIID2TCCAsGgAwIBAgIUcYimUsFDI6395PM2WbAvPEtbfjowDQYJKoZIhvcNAQEL\nBQAwczELMAkGA1UEBhMCRVMxETAPBgNVBAgTCEdpcHV6a29hMREwDwYDVQQHEwhB\ncnJhc2F0ZTEhMA4GA1UEChMHUy4gQ29vcDAPBgNVBAoTCExLUyBOZXh0MRswGQYD\nVQQDExJMS1MgTmV4dCBSb290IENBIDIwIBcNMjEwNTE4MTEzNzM2WhgPMjA1MTA1\nMTExMTM4MDZaMHMxCzAJBgNVBAYTAkVTMREwDwYDVQQIEwhHaXB1emtvYTERMA8G\nA1UEBxMIQXJyYXNhdGUxITAOBgNVBAoTB1MuIENvb3AwDwYDVQQKEwhMS1MgTmV4\ndDEbMBkGA1UEAxMSTEtTIE5leHQgUm9vdCBDQSAyMIIBIjANBgkqhkiG9w0BAQEF\nAAOCAQ8AMIIBCgKCAQEA2ePwTAHaGPd3H/I3mRkLqL0GxgcZw/VlSHfT0I6clIvQ\n1Ulc7kL0NZRTYPOsBQIjWuu61PwSwPgop/N+slMYpG/NOJwKzH9JHAjNKISuNasS\n66Q3pLBK/QMHIZsaRkPOCfVlQeV75YFhehtabxM10CLdJq9HE5iKY/B1SEdCcAz4\nGbzVy/DzdqAtHrdwyjlS2DM+hYWEvUwbZIzSAWlOtIMHCYypd5wvYTN3tfsYtjft\nTwT3gIdoQTz4eOF/HGmE3NglO3qJspze7sgMDmcfBrgo51C+XOfmZ5zYk1cJSkjM\nsT3tcmwJlBP6va2AGTuTtCQDhbGbnXM33uIlh7L9JQIDAQABo2MwYTAOBgNVHQ8B\nAf8EBAMCAQYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUMfBBHj4BJqvG8FRH\n2nMrdF/JZo8wHwYDVR0jBBgwFoAUMfBBHj4BJqvG8FRH2nMrdF/JZo8wDQYJKoZI\nhvcNAQELBQADggEBANWH9n6Ezh0hmozhtu8HGKybIxAVTmxiXirY3sYwIsMyB1Ns\nljbGaah4qqmzQKCAqfaeQbd1YMER+C98OnA7S/xV0Vxucu5g/obFekXyJf1U9SLW\nfh5tuCtsfgkSNPLk21hWMFfZR3hJKfcK6GuoTOW6cBUf+VbWLO6tsO011xWF4tYj\nfppbk7wHT6LIFY3wsKl5ti16U0gd/s9XfqYR84y9bZWZ+SGzNC3n9OWxvYnOrX/B\nNO/ucnBKon7kpHX91kkj9kWRNONAf2lWTeg0WcUm2e1sim6fEekux7cg1PCqz3Li\n2zRuHYvLO1cBeXQ+8olyCpBQDWaXMWkoNW49xbY=\n-----END CERTIFICATE-----
-	CRT string `json:"crt"`
+type Cert struct {
+	// The status of the CA
+	// required: true
+	// example: issued | expired
+	Status string `json:"status,omitempty"`
 
-	PublicKey string `json:"pub_key"`
-}
-
-// CA represents a registered CA minimum information
-// swagger:model
-type CA struct {
 	// The serial number of the CA
 	// required: true
 	// example: 7e:36:13:a5:31:9f:4a:76:10:64:2e:9b:0a:11:07:b7:e6:3e:cf:94
@@ -79,18 +71,26 @@ type CA struct {
 	// Expiration period of the new emmited CA
 	// required: true
 	// example: 262800h
-	TTL string `json:"ttl,omitempty"`
+	TTL int `json:"ttl,omitempty"`
+}
+
+type CAImport struct {
+	PEMBundle string `json:"pem_bundle"`
+	TTL       int    `json:"ttl"`
 }
 
 // CAs represents a list of CAs with minimum information
 // swagger:model
-type CAs struct {
-	CAs []CA
+type Certs struct {
+	Certs []Cert `json:"certs"`
 }
 
 type Secrets interface {
-	GetCAs() (CAs, error)
-	GetCACrt(caName string) (CACrt, error)
-	CreateCA(caName string, ca CA) error
+	GetCAs() (Certs, error)
+	CreateCA(caName string, ca Cert) error
+	ImportCA(caName string, caImport CAImport) error
 	DeleteCA(caName string) error
+
+	GetIssuedCerts(caName string) (Certs, error)
+	DeleteCert(caName string, serialNumber string) error
 }

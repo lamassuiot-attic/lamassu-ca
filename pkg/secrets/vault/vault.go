@@ -5,12 +5,14 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
 	"math/big"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
@@ -62,74 +64,101 @@ func Login(client *api.Client, roleID string, secretID string) error {
 	return nil
 }
 
-func (vs *vaultSecrets) GetCAs() (secrets.CAs, error) {
-	resp, err := vs.client.Sys().ListMounts()
+func (vs *vaultSecrets) GetCA(caName string) (secrets.Cert, error) {
+	resp, err := vs.client.Logical().Read(caName + "/cert/ca")
 	if err != nil {
-		level.Error(vs.logger).Log("err", err, "msg", "Could not obtain list of Vault mounts")
-		return secrets.CAs{}, err
+		level.Warn(vs.logger).Log("err", err, "msg", "Could not read "+caName+" certificate from Vault")
+		return secrets.Cert{}, err
 	}
-	var CAs secrets.CAs
-	for mount, mountOutput := range resp {
-		if mountOutput.Type == "pki" {
-			caName := strings.TrimSuffix(mount, "/")
-			caPath := caName + "/cert/ca"
+	if resp == nil {
+		level.Warn(vs.logger).Log("Mount path for PKI " + caName + " does not have a root CA")
+		return secrets.Cert{}, err
 
-			resp, err := vs.client.Logical().Read(caPath)
-			if err != nil {
-				level.Warn(vs.logger).Log("err", err, "msg", "Could not read "+caName+" certificate from Vault")
-				continue
-			}
-			if resp == nil {
-				level.Warn(vs.logger).Log("Mount path " + mount + " does not have a root CA")
-				continue
-			}
-			cert, err := DecodeCert(caName, []byte(resp.Data["certificate"].(string)))
-			if err != nil {
-				err = errors.New("Cannot decode cert. Perhaps it is malphormed")
-				level.Warn(vs.logger).Log("err", err)
-				continue
-			}
-
-			pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
-
-			CAs.CAs = append(CAs.CAs, secrets.CA{
-				SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
-				CRT:          resp.Data["certificate"].(string),
-				CaName:       caName,
-				PublicKey:    pubKey,
-				C:            strings.Join(cert.Subject.Country, " "),
-				ST:           strings.Join(cert.Subject.Province, " "),
-				L:            strings.Join(cert.Subject.Locality, " "),
-				O:            strings.Join(cert.Subject.Organization, " "),
-				OU:           strings.Join(cert.Subject.OrganizationalUnit, " "),
-				CN:           cert.Subject.CommonName,
-				KeyType:      keyType,
-				KeyBits:      keyBits,
-				KeyStrength:  keyStrength,
-			})
-		}
-	}
-	level.Info(vs.logger).Log("msg", strconv.Itoa(len(CAs.CAs))+" obtained from Vault mounts")
-	return CAs, nil
-}
-
-func (vs *vaultSecrets) GetCACrt(caName string) (secrets.CACrt, error) {
-	caPath := caName + "/cert/ca"
-	resp, err := vs.client.Logical().Read(caPath)
-	if err != nil {
-		level.Error(vs.logger).Log("err", err, "msg", "Could not read "+caName+" certificate from Vault")
-		return secrets.CACrt{}, err
 	}
 	cert, err := DecodeCert(caName, []byte(resp.Data["certificate"].(string)))
 	if err != nil {
-		level.Error(vs.logger).Log("err", err, "msg", "Could not decode certificate: perhaps it is malformed")
-		return secrets.CACrt{}, err
+		err = errors.New("Cannot decode cert. Perhaps it is malphormed")
+		level.Warn(vs.logger).Log("err", err)
+		return secrets.Cert{}, err
 	}
-	pubKey, _, _, _ := getPublicKeyInfo(cert)
-	return secrets.CACrt{CRT: resp.Data["certificate"].(string), PublicKey: pubKey}, nil
+	pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
+	hasExpired := cert.NotAfter.Before(time.Now())
+	status := "issued"
+	if hasExpired {
+		status = "expired"
+	}
+
+	return secrets.Cert{
+		SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
+		Status:       status,
+		CRT:          resp.Data["certificate"].(string),
+		CaName:       caName,
+		PublicKey:    pubKey,
+		C:            strings.Join(cert.Subject.Country, " "),
+		ST:           strings.Join(cert.Subject.Province, " "),
+		L:            strings.Join(cert.Subject.Locality, " "),
+		O:            strings.Join(cert.Subject.Organization, " "),
+		OU:           strings.Join(cert.Subject.OrganizationalUnit, " "),
+		CN:           cert.Subject.CommonName,
+		KeyType:      keyType,
+		KeyBits:      keyBits,
+		KeyStrength:  keyStrength,
+	}, nil
 }
 
-func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.CA) error {
+func (vs *vaultSecrets) GetCAs() (secrets.Certs, error) {
+	resp, err := vs.client.Sys().ListMounts()
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not obtain list of Vault mounts")
+		return secrets.Certs{}, err
+	}
+	var CAs secrets.Certs
+	for mount, mountOutput := range resp {
+		if mountOutput.Type == "pki" {
+			caName := strings.TrimSuffix(mount, "/")
+			cert, err := vs.GetCA(caName)
+			if err != nil {
+				level.Error(vs.logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
+				continue
+			}
+			CAs.Certs = append(CAs.Certs, cert)
+		}
+	}
+	level.Info(vs.logger).Log("msg", strconv.Itoa(len(CAs.Certs))+" obtained from Vault mounts")
+	return CAs, nil
+}
+
+func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
+	initPkiSecret(vs, CAName, ca.TTL)
+	options := map[string]interface{}{
+		"key_type":          ca.KeyType,
+		"key_bits":          ca.KeyBits,
+		"country":           ca.C,
+		"province":          ca.ST,
+		"locality":          ca.L,
+		"organization":      ca.O,
+		"organization_unit": ca.OU,
+		"common_name":       ca.CN,
+		"ttl":               strconv.Itoa(ca.TTL) + "h",
+	}
+	_, err := vs.client.Logical().Write(CAName+"/root/generate/internal", options)
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
+		return err
+	}
+	return nil
+}
+
+func (vs *vaultSecrets) ImportCA(CAName string, caImport secrets.CAImport) error {
+	initPkiSecret(vs, CAName, caImport.TTL)
+	options := map[string]interface{}{
+		"pem_bundle": caImport.PEMBundle,
+	}
+	vs.client.Logical().Write(CAName+"/config/ca", options)
+	return nil
+}
+
+func initPkiSecret(vs *vaultSecrets, CAName string, certTTL int) error {
 	mountInput := api.MountInput{Type: "pki", Description: ""}
 	err := vs.client.Sys().Mount(CAName, &mountInput)
 	if err != nil {
@@ -156,9 +185,10 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.CA) error {
 	}
 
 	rootPathRules := vault.PathRules{Path: CAName, Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}, IsPrefix: true}
-	caPathRules := vault.PathRules{Path: CAName + "/cert/ca", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
-	enrollerPathRules := vault.PathRules{Path: CAName + "/roles/enroller", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
-	policy.Paths = append(policy.Paths, &rootPathRules, &caPathRules, &enrollerPathRules)
+	//caPathRules := vault.PathRules{Path: CAName + "/cert/ca", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
+	//enrollerPathRules := vault.PathRules{Path: CAName + "/roles/enroller", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
+	//policy.Paths = append(policy.Paths, &rootPathRules, &caPathRules, &enrollerPathRules)
+	policy.Paths = append(policy.Paths, &rootPathRules)
 
 	newPolicy := PolicyToString(*policy)
 
@@ -170,29 +200,12 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.CA) error {
 
 	_, err = vs.client.Logical().Write(CAName+"/roles/enroller", map[string]interface{}{
 		"allow_any_name": true,
-		"ttl":            "175200h", //30Años
-		"max_ttl":        "262800h", //20Años
+		"ttl":            strconv.Itoa(certTTL+1) + "h",
+		"max_ttl":        strconv.Itoa(certTTL+1) + "h",
 		"key_type":       "any",
 	})
 	if err != nil {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not create a new role for "+CAName+" CA on Vault")
-		return err
-	}
-
-	options := map[string]interface{}{
-		"key_type":          ca.KeyType,
-		"key_bits":          ca.KeyBits,
-		"country":           ca.C,
-		"province":          ca.ST,
-		"locality":          ca.L,
-		"organization":      ca.O,
-		"organization_unit": ca.OU,
-		"common_name":       ca.CN,
-		"ttl":               ca.TTL,
-	}
-	_, err = vs.client.Logical().Write(CAName+"/root/generate/internal", options)
-	if err != nil {
-		level.Error(vs.logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
 		return err
 	}
 	return nil
@@ -203,6 +216,103 @@ func (vs *vaultSecrets) DeleteCA(ca string) error {
 	_, err := vs.client.Logical().Delete(deletePath)
 	if err != nil {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not delete "+ca+" certificate from Vault")
+		return err
+	}
+	return nil
+}
+
+func (vs *vaultSecrets) GetIssuedCerts(caName string) (secrets.Certs, error) {
+	var Certs secrets.Certs
+
+	if caName == "" {
+		cas, err := vs.GetCAs()
+		if err != nil {
+			level.Error(vs.logger).Log("err", err, "msg", "Could not get CAs from Vault")
+		}
+		for _, cert := range cas.Certs {
+			certsSubset, err := vs.GetIssuedCerts(cert.CaName)
+			if err != nil {
+				level.Error(vs.logger).Log("err", err, "msg", "Error while getting issued cert subset for CA "+cert.CaName)
+				continue
+			}
+			Certs.Certs = append(Certs.Certs, certsSubset.Certs...)
+		}
+	} else {
+		getCertsPath := caName + "/certs"
+		resp, err := vs.client.Logical().List(getCertsPath)
+		if err != nil {
+			level.Error(vs.logger).Log("err", err, "msg", "Could not read "+caName+" mount path from Vault")
+			return secrets.Certs{}, err
+		}
+
+		caCert, err := vs.GetCA(caName)
+		if err != nil {
+			level.Error(vs.logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
+			return secrets.Certs{}, err
+		}
+
+		for _, elem := range resp.Data["keys"].([]interface{}) {
+			certSerialID := elem.(string)
+			if caCert.SerialNumber == certSerialID {
+				continue
+			}
+			certResponse, err := vs.client.Logical().Read(caName + "/cert/" + certSerialID)
+			if err != nil {
+				level.Error(vs.logger).Log("err", err, "msg", "Could not read certificate "+certSerialID+" from CA "+caName)
+				continue
+			}
+			cert, err := DecodeCert(caName, []byte(certResponse.Data["certificate"].(string)))
+			if err != nil {
+				err = errors.New("Cannot decode cert " + certSerialID + ". Perhaps it is malphormed")
+				level.Warn(vs.logger).Log("err", err)
+				continue
+			}
+
+			pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
+			hasExpired := cert.NotAfter.Before(time.Now())
+			status := "issued"
+			if hasExpired {
+				status = "expired"
+			}
+			revocation_time, err := certResponse.Data["revocation_time"].(json.Number).Int64()
+			if err != nil {
+				err = errors.New("revocation_time not an INT for cert " + certSerialID + ".")
+				level.Warn(vs.logger).Log("err", err)
+				continue
+			}
+			if revocation_time != 0 {
+				status = "revoked"
+			}
+
+			Certs.Certs = append(Certs.Certs, secrets.Cert{
+				SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
+				Status:       status,
+				CRT:          certResponse.Data["certificate"].(string),
+				CaName:       caName,
+				PublicKey:    pubKey,
+				C:            strings.Join(cert.Subject.Country, " "),
+				ST:           strings.Join(cert.Subject.Province, " "),
+				L:            strings.Join(cert.Subject.Locality, " "),
+				O:            strings.Join(cert.Subject.Organization, " "),
+				OU:           strings.Join(cert.Subject.OrganizationalUnit, " "),
+				CN:           cert.Subject.CommonName,
+				KeyType:      keyType,
+				KeyBits:      keyBits,
+				KeyStrength:  keyStrength,
+			})
+		}
+	}
+	return Certs, nil
+
+}
+
+func (vs *vaultSecrets) DeleteCert(caName string, serialNumber string) error {
+	options := map[string]interface{}{
+		"serial_number": serialNumber,
+	}
+	_, err := vs.client.Logical().Write(caName+"/revoke", options)
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not revoke cert with serial number "+serialNumber+" from CA "+caName)
 		return err
 	}
 	return nil

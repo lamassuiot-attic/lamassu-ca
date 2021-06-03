@@ -91,6 +91,13 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
 	))
 
+	r.Methods("DELETE").Path("/v1/cas/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.DeleteCertEndpoint),
+		decodeDeleteCertRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "DeleteCert", logger)))...,
+	))
+
 	return r
 }
 
@@ -154,6 +161,19 @@ func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interf
 		return nil, errCAName
 	}
 	return deleteCARequest{CA: CA}, nil
+}
+
+func decodeDeleteCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	vars := mux.Vars(r)
+	CA, ok := vars["ca"]
+	if !ok {
+		return nil, errCAName
+	}
+	serialNumber, ok := vars["serialNumber"]
+	if !ok {
+		return nil, errCAName
+	}
+	return deleteCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {

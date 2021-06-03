@@ -71,11 +71,12 @@ type Cert struct {
 	// Expiration period of the new emmited CA
 	// required: true
 	// example: 262800h
-	TTL string `json:"ttl,omitempty"`
+	TTL int `json:"ttl,omitempty"`
 }
 
 type CAImport struct {
 	PEMBundle string `json:"pem_bundle"`
+	TTL       int    `json:"ttl"`
 }
 
 // CAs represents a list of CAs with minimum information
@@ -91,4 +92,5 @@ type Secrets interface {
 	DeleteCA(caName string) error
 
 	GetIssuedCerts(caName string) (Certs, error)
+	DeleteCert(caName string, serialNumber string) error
 }

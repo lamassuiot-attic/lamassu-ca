@@ -5,6 +5,7 @@ import (
 	"crypto/ecdsa"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/json"
 	"encoding/pem"
 	"errors"
 	"fmt"
@@ -128,7 +129,7 @@ func (vs *vaultSecrets) GetCAs() (secrets.Certs, error) {
 }
 
 func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
-	initPkiSecret(vs, CAName)
+	initPkiSecret(vs, CAName, ca.TTL)
 	options := map[string]interface{}{
 		"key_type":          ca.KeyType,
 		"key_bits":          ca.KeyBits,
@@ -138,7 +139,7 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 		"organization":      ca.O,
 		"organization_unit": ca.OU,
 		"common_name":       ca.CN,
-		"ttl":               ca.TTL,
+		"ttl":               strconv.Itoa(ca.TTL) + "h",
 	}
 	_, err := vs.client.Logical().Write(CAName+"/root/generate/internal", options)
 	if err != nil {
@@ -149,7 +150,7 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 }
 
 func (vs *vaultSecrets) ImportCA(CAName string, caImport secrets.CAImport) error {
-	initPkiSecret(vs, CAName)
+	initPkiSecret(vs, CAName, caImport.TTL)
 	options := map[string]interface{}{
 		"pem_bundle": caImport.PEMBundle,
 	}
@@ -157,7 +158,7 @@ func (vs *vaultSecrets) ImportCA(CAName string, caImport secrets.CAImport) error
 	return nil
 }
 
-func initPkiSecret(vs *vaultSecrets, CAName string) error {
+func initPkiSecret(vs *vaultSecrets, CAName string, certTTL int) error {
 	mountInput := api.MountInput{Type: "pki", Description: ""}
 	err := vs.client.Sys().Mount(CAName, &mountInput)
 	if err != nil {
@@ -184,9 +185,10 @@ func initPkiSecret(vs *vaultSecrets, CAName string) error {
 	}
 
 	rootPathRules := vault.PathRules{Path: CAName, Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}, IsPrefix: true}
-	caPathRules := vault.PathRules{Path: CAName + "/cert/ca", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
-	enrollerPathRules := vault.PathRules{Path: CAName + "/roles/enroller", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
-	policy.Paths = append(policy.Paths, &rootPathRules, &caPathRules, &enrollerPathRules)
+	//caPathRules := vault.PathRules{Path: CAName + "/cert/ca", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
+	//enrollerPathRules := vault.PathRules{Path: CAName + "/roles/enroller", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
+	//policy.Paths = append(policy.Paths, &rootPathRules, &caPathRules, &enrollerPathRules)
+	policy.Paths = append(policy.Paths, &rootPathRules)
 
 	newPolicy := PolicyToString(*policy)
 
@@ -198,8 +200,8 @@ func initPkiSecret(vs *vaultSecrets, CAName string) error {
 
 	_, err = vs.client.Logical().Write(CAName+"/roles/enroller", map[string]interface{}{
 		"allow_any_name": true,
-		"ttl":            "175200h", //30Años
-		"max_ttl":        "262800h", //20Años
+		"ttl":            strconv.Itoa(certTTL+1) + "h",
+		"max_ttl":        strconv.Itoa(certTTL+1) + "h",
 		"key_type":       "any",
 	})
 	if err != nil {
@@ -272,6 +274,15 @@ func (vs *vaultSecrets) GetIssuedCerts(caName string) (secrets.Certs, error) {
 			if hasExpired {
 				status = "expired"
 			}
+			revocation_time, err := certResponse.Data["revocation_time"].(json.Number).Int64()
+			if err != nil {
+				err = errors.New("revocation_time not an INT for cert " + certSerialID + ".")
+				level.Warn(vs.logger).Log("err", err)
+				continue
+			}
+			if revocation_time != 0 {
+				status = "revoked"
+			}
 
 			Certs.Certs = append(Certs.Certs, secrets.Cert{
 				SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
@@ -293,6 +304,18 @@ func (vs *vaultSecrets) GetIssuedCerts(caName string) (secrets.Certs, error) {
 	}
 	return Certs, nil
 
+}
+
+func (vs *vaultSecrets) DeleteCert(caName string, serialNumber string) error {
+	options := map[string]interface{}{
+		"serial_number": serialNumber,
+	}
+	_, err := vs.client.Logical().Write(caName+"/revoke", options)
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not revoke cert with serial number "+serialNumber+" from CA "+caName)
+		return err
+	}
+	return nil
 }
 
 func insertNth(s string, n int) string {

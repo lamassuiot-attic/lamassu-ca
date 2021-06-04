@@ -131,7 +131,7 @@ func (vs *vaultSecrets) GetCAs() (secrets.Certs, error) {
 }
 
 func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
-	initPkiSecret(vs, CAName, ca.TTL)
+	initPkiSecret(vs, CAName, ca.EnrollerTTL)
 	options := map[string]interface{}{
 		"key_type":          ca.KeyType,
 		"key_bits":          ca.KeyBits,
@@ -141,7 +141,7 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 		"organization":      ca.O,
 		"organization_unit": ca.OU,
 		"common_name":       ca.CN,
-		"ttl":               strconv.Itoa(ca.TTL) + "h",
+		"ttl":               strconv.Itoa(ca.CaTTL) + "h",
 	}
 	_, err := vs.client.Logical().Write(CAName+"/root/generate/internal", options)
 	if err != nil {
@@ -160,7 +160,7 @@ func (vs *vaultSecrets) ImportCA(CAName string, caImport secrets.CAImport) error
 	return nil
 }
 
-func initPkiSecret(vs *vaultSecrets, CAName string, certTTL int) error {
+func initPkiSecret(vs *vaultSecrets, CAName string, enrollerTTL int) error {
 	mountInput := api.MountInput{Type: "pki", Description: ""}
 	err := vs.client.Sys().Mount(CAName, &mountInput)
 	if err != nil {
@@ -202,8 +202,8 @@ func initPkiSecret(vs *vaultSecrets, CAName string, certTTL int) error {
 
 	_, err = vs.client.Logical().Write(CAName+"/roles/enroller", map[string]interface{}{
 		"allow_any_name": true,
-		"ttl":            strconv.Itoa(certTTL+1) + "h",
-		"max_ttl":        strconv.Itoa(certTTL+1) + "h",
+		"ttl":            strconv.Itoa(enrollerTTL) + "h",
+		"max_ttl":        strconv.Itoa(enrollerTTL) + "h",
 		"key_type":       "any",
 	})
 	if err != nil {

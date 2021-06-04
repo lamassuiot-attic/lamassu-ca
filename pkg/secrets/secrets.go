@@ -71,7 +71,9 @@ type Cert struct {
 	// Expiration period of the new emmited CA
 	// required: true
 	// example: 262800h
-	TTL int `json:"ttl,omitempty"`
+	CaTTL int `json:"ca_ttl,omitempty"`
+
+	EnrollerTTL int `json:"enroller_ttl,omitempty"`
 
 	ValidFrom string
 	ValidTO   string

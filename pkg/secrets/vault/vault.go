@@ -131,7 +131,10 @@ func (vs *vaultSecrets) GetCAs() (secrets.Certs, error) {
 }
 
 func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
-	initPkiSecret(vs, CAName, ca.EnrollerTTL)
+	err := initPkiSecret(vs, CAName, ca.CaTTL)
+	if err != nil {
+		return err
+	}
 	options := map[string]interface{}{
 		"key_type":          ca.KeyType,
 		"key_bits":          ca.KeyBits,
@@ -143,7 +146,7 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 		"common_name":       ca.CN,
 		"ttl":               strconv.Itoa(ca.CaTTL) + "h",
 	}
-	_, err := vs.client.Logical().Write(CAName+"/root/generate/internal", options)
+	_, err = vs.client.Logical().Write(CAName+"/root/generate/internal", options)
 	if err != nil {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
 		return err
@@ -152,7 +155,10 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 }
 
 func (vs *vaultSecrets) ImportCA(CAName string, caImport secrets.CAImport) error {
-	initPkiSecret(vs, CAName, caImport.TTL)
+	err := initPkiSecret(vs, CAName, caImport.TTL)
+	if err != nil {
+		return err
+	}
 	options := map[string]interface{}{
 		"pem_bundle": caImport.PEMBundle,
 	}
@@ -164,8 +170,12 @@ func initPkiSecret(vs *vaultSecrets, CAName string, enrollerTTL int) error {
 	mountInput := api.MountInput{Type: "pki", Description: ""}
 	err := vs.client.Sys().Mount(CAName, &mountInput)
 	if err != nil {
-		level.Error(vs.logger).Log("err", err, "msg", "Could not create a new pki mount point on Vault")
-		return err
+		level.Error(vs.logger).Log("err", err, "msg", "Could not create a new pki mount point on Vaul.t")
+		if strings.Contains(err.Error(), "path is already in use") {
+			return errors.New("Could no create CA \"" + CAName + "\". Already exists")
+		} else {
+			return err
+		}
 	}
 
 	err = vs.client.Sys().PutPolicy(CAName+"-policy", "path \""+CAName+"*\" {\n capabilities=[\"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}")

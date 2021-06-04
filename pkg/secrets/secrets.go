@@ -72,6 +72,9 @@ type Cert struct {
 	// required: true
 	// example: 262800h
 	TTL int `json:"ttl,omitempty"`
+
+	ValidFrom string
+	ValidTO   string
 }
 
 type CAImport struct {

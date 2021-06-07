@@ -240,14 +240,17 @@ func (vs *vaultSecrets) GetIssuedCerts(caName string) (secrets.Certs, error) {
 		cas, err := vs.GetCAs()
 		if err != nil {
 			level.Error(vs.logger).Log("err", err, "msg", "Could not get CAs from Vault")
+			return secrets.Certs{}, err
 		}
 		for _, cert := range cas.Certs {
-			certsSubset, err := vs.GetIssuedCerts(cert.CaName)
-			if err != nil {
-				level.Error(vs.logger).Log("err", err, "msg", "Error while getting issued cert subset for CA "+cert.CaName)
-				continue
+			if cert.CaName != "" {
+				certsSubset, err := vs.GetIssuedCerts(cert.CaName)
+				if err != nil {
+					level.Error(vs.logger).Log("err", err, "msg", "Error while getting issued cert subset for CA "+cert.CaName)
+					continue
+				}
+				Certs.Certs = append(Certs.Certs, certsSubset.Certs...)
 			}
-			Certs.Certs = append(Certs.Certs, certsSubset.Certs...)
 		}
 	} else {
 		getCertsPath := caName + "/certs"

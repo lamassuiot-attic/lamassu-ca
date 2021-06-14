@@ -15,6 +15,7 @@ type Service interface {
 	ImportCA(ctx context.Context, caName string, ca secrets.CAImport) error
 	DeleteCA(ctx context.Context, caName string) error
 	GetIssuedCerts(ctx context.Context, caName string) (secrets.Certs, error)
+	DeleteCert(ctx context.Context, caName string, serialNumber string) error
 }
 
 type caService struct {
@@ -79,4 +80,12 @@ func (s *caService) GetIssuedCerts(ctx context.Context, caName string) (secrets.
 		return secrets.Certs{}, err
 	}
 	return certs, nil
+}
+
+func (s *caService) DeleteCert(ctx context.Context, caName string, serialNumber string) error {
+	err := s.secrets.DeleteCert(caName, serialNumber)
+	if err != nil {
+		return err
+	}
+	return nil
 }

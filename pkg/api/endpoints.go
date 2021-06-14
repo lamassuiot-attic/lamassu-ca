@@ -17,6 +17,7 @@ type Endpoints struct {
 	ImportCAEndpoint       endpoint.Endpoint
 	DeleteCAEndpoint       endpoint.Endpoint
 	GetIssuedCertsEndpoint endpoint.Endpoint
+	DeleteCertEndpoint     endpoint.Endpoint
 }
 
 func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
@@ -55,6 +56,12 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 		getIssuedCertsEndpoint = MakeIssuedCertsEndpoint(s)
 		getIssuedCertsEndpoint = opentracing.TraceServer(otTracer, "GetIssuedCerts")(getIssuedCertsEndpoint)
 	}
+
+	var deleteCertEndpoint endpoint.Endpoint
+	{
+		deleteCertEndpoint = MakeDeleteCertEndpoint(s)
+		deleteCertEndpoint = opentracing.TraceServer(otTracer, "DeleteCert")(deleteCertEndpoint)
+	}
 	return Endpoints{
 		HealthEndpoint:         healthEndpoint,
 		GetCAsEndpoint:         getCAsEndpoint,
@@ -62,6 +69,7 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 		ImportCAEndpoint:       importCAEndpoint,
 		DeleteCAEndpoint:       deleteCAEndpoint,
 		GetIssuedCertsEndpoint: getIssuedCertsEndpoint,
+		DeleteCertEndpoint:     deleteCertEndpoint,
 	}
 }
 
@@ -84,7 +92,7 @@ func MakeCreateCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(createCARequest)
 		err = s.CreateCA(ctx, req.CAName, req.CA)
-		return createCAResponse{Err: err}, nil
+		return nil, err
 	}
 }
 
@@ -92,7 +100,7 @@ func MakeDeleteCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(deleteCARequest)
 		err = s.DeleteCA(ctx, req.CA)
-		return deleteCAResponse{Err: err}, nil
+		return errorResponse{Err: err}, nil
 	}
 }
 
@@ -100,7 +108,7 @@ func MakeImportCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(importCARequest)
 		err = s.ImportCA(ctx, req.CAName, req.CAImport)
-		return deleteCAResponse{Err: err}, nil
+		return errorResponse{Err: err}, nil
 	}
 }
 
@@ -114,6 +122,14 @@ func MakeIssuedCertsEndpoint(s Service) endpoint.Endpoint {
 			certs, err := s.GetIssuedCerts(ctx, "")
 			return certs.Certs, err
 		}
+	}
+}
+
+func MakeDeleteCertEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(deleteCertRequest)
+		err = s.DeleteCert(ctx, req.CaName, req.SerialNumber)
+		return errorResponse{Err: err}, nil
 	}
 }
 
@@ -141,6 +157,11 @@ type deleteCARequest struct {
 	CA string
 }
 
+type deleteCertRequest struct {
+	CaName       string
+	SerialNumber string
+}
+
 type createCARequest struct {
 	CAName string
 	CA     secrets.Cert
@@ -149,15 +170,9 @@ type importCARequest struct {
 	CAName   string
 	CAImport secrets.CAImport
 }
-type createCAResponse struct {
-	Err error `json:"-"`
-}
-type importCAResponse struct {
+
+type errorResponse struct {
 	Err error `json:"-"`
 }
 
-type deleteCAResponse struct {
-	Err error `json:"-"`
-}
-
-func (r deleteCAResponse) error() error { return r.Err }
+func (r errorResponse) error() error { return r.Err }

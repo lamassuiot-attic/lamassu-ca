@@ -96,3 +96,16 @@ func (mw loggingMiddleware) GetIssuedCerts(ctx context.Context, CA string) (cert
 	}(time.Now())
 	return mw.next.GetIssuedCerts(ctx, CA)
 }
+
+func (mw loggingMiddleware) DeleteCert(ctx context.Context, caName string, serialNumber string) (err error) {
+	defer func(begin time.Time) {
+		mw.logger.Log(
+			"method", "DeleteCert",
+			"ca_name", caName,
+			"serialNumber", serialNumber,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return mw.next.DeleteCert(ctx, caName, serialNumber)
+}

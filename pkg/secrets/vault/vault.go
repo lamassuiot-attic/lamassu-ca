@@ -72,7 +72,6 @@ func (vs *vaultSecrets) GetCA(caName string) (secrets.Cert, error) {
 	if resp == nil {
 		level.Warn(vs.logger).Log("Mount path for PKI " + caName + " does not have a root CA")
 		return secrets.Cert{}, err
-
 	}
 	cert, err := DecodeCert(caName, []byte(resp.Data["certificate"].(string)))
 	if err != nil {

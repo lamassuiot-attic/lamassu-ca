@@ -50,7 +50,21 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 	))
 
 	r.Methods("GET").Path("/v1/cas").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetCAsEndpoint),
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetAllCAsEndpoint),
+		decodeGetCAsRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,
+	))
+
+	r.Methods("GET").Path("/v1/cas/ops").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetOpsCAsEndpoint),
+		decodeGetCAsRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,
+	))
+
+	r.Methods("GET").Path("/v1/cas/system").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetSystemCAsEndpoint),
 		decodeGetCAsRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,

@@ -90,8 +90,16 @@ type Certs struct {
 	Certs []Cert `json:"certs"`
 }
 
+type CAType int
+
+const (
+	SystemCAs CAType = iota + 1
+	OperationsCAs
+	AllCAs
+)
+
 type Secrets interface {
-	GetCAs() (Certs, error)
+	GetCAs(caType CAType) (Certs, error)
 	CreateCA(caName string, ca Cert) error
 	ImportCA(caName string, caImport CAImport) error
 	DeleteCA(caName string) error

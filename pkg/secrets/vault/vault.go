@@ -88,6 +88,10 @@ func (vs *vaultSecrets) GetCA(caName string) (secrets.Cert, error) {
 		status = "expired"
 	}
 
+	if !vs.hasEnrollerRole(caName) {
+		status = "revoked"
+	}
+
 	return secrets.Cert{
 		SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
 		Status:       status,
@@ -108,13 +112,18 @@ func (vs *vaultSecrets) GetCA(caName string) (secrets.Cert, error) {
 	}, nil
 }
 
-func (vs *vaultSecrets) GetCAs() (secrets.Certs, error) {
+func (vs *vaultSecrets) GetCAs(caType secrets.CAType) (secrets.Certs, error) {
 	resp, err := vs.client.Sys().ListMounts()
 	if err != nil {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not obtain list of Vault mounts")
 		return secrets.Certs{}, err
 	}
 	var CAs secrets.Certs
+	lamassuSytemCARootCert, err := vs.getLamassuSystemCARootCert()
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not obtain Lamassu System CA Root Cert")
+		return secrets.Certs{}, err
+	}
 	for mount, mountOutput := range resp {
 		if mountOutput.Type == "pki" {
 			caName := strings.TrimSuffix(mount, "/")
@@ -123,7 +132,21 @@ func (vs *vaultSecrets) GetCAs() (secrets.Certs, error) {
 				level.Error(vs.logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
 				continue
 			}
-			CAs.Certs = append(CAs.Certs, cert)
+			switch caType {
+			case secrets.AllCAs:
+				CAs.Certs = append(CAs.Certs, cert)
+			case secrets.SystemCAs:
+				x509Cert, _ := DecodeCert(caName, []byte(cert.CRT))
+				isLamassuSystemCAResult := isLamassuSystemCA(lamassuSytemCARootCert, x509Cert)
+				if isLamassuSystemCAResult {
+					CAs.Certs = append(CAs.Certs, cert)
+				}
+			case secrets.OperationsCAs:
+				x509Cert, _ := DecodeCert(caName, []byte(cert.CRT))
+				if !isLamassuSystemCA(lamassuSytemCARootCert, x509Cert) {
+					CAs.Certs = append(CAs.Certs, cert)
+				}
+			}
 		}
 	}
 	level.Info(vs.logger).Log("msg", strconv.Itoa(len(CAs.Certs))+" obtained from Vault mounts")
@@ -230,6 +253,11 @@ func (vs *vaultSecrets) DeleteCA(ca string) error {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not delete "+ca+" certificate from Vault")
 		return err
 	}
+	_, err = vs.client.Logical().Delete(ca + "/roles/enroller")
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not delete enroller role from CA "+ca)
+		return err
+	}
 	return nil
 }
 
@@ -237,7 +265,7 @@ func (vs *vaultSecrets) GetIssuedCerts(caName string) (secrets.Certs, error) {
 	var Certs secrets.Certs
 
 	if caName == "" {
-		cas, err := vs.GetCAs()
+		cas, err := vs.GetCAs(secrets.AllCAs)
 		if err != nil {
 			level.Error(vs.logger).Log("err", err, "msg", "Could not get CAs from Vault")
 			return secrets.Certs{}, err
@@ -370,6 +398,40 @@ func DecodeCert(caName string, cert []byte) (x509.Certificate, error) {
 		return x509.Certificate{}, err
 	}
 	return *caCert, nil
+}
+
+func (vs *vaultSecrets) getLamassuSystemCARootCert() (x509.Certificate, error) {
+	secretCert, err := vs.GetCA("Lamassu-System-CA")
+	if err != nil {
+		// level.Error(vs.logger).Log("err", err, "msg", "Could not parse "+caName+" CA certificate")
+		return x509.Certificate{}, err
+	}
+	cert, err := DecodeCert("Lamassu-System-CA", []byte(secretCert.CRT))
+	return cert, err
+}
+
+func (vs *vaultSecrets) hasEnrollerRole(caName string) bool {
+	data, _ := vs.client.Logical().Read(caName + "/roles/enroller")
+	if data == nil {
+		return false
+	} else {
+		return true
+	}
+}
+
+func isLamassuSystemCA(lamassuSystemRootCaCert x509.Certificate, cert x509.Certificate) bool {
+	roots := x509.NewCertPool()
+	roots.AddCert(&lamassuSystemRootCaCert)
+
+	opts := x509.VerifyOptions{
+		Roots: roots,
+	}
+
+	if _, err := cert.Verify(opts); err != nil {
+		return false
+	} else {
+		return true
+	}
 }
 
 func getPublicKeyInfo(cert x509.Certificate) (string, string, int, string) {

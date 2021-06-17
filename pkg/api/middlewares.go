@@ -36,16 +36,17 @@ func (mw loggingMiddleware) Health(ctx context.Context) (healthy bool) {
 	return mw.next.Health(ctx)
 }
 
-func (mw loggingMiddleware) GetCAs(ctx context.Context) (CAs secrets.Certs, err error) {
+func (mw loggingMiddleware) GetCAs(ctx context.Context, caType secrets.CAType) (CAs secrets.Certs, err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "GetCAs",
+			"caType", caType,
 			"number_cas", len(CAs.Certs),
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.GetCAs(ctx)
+	return mw.next.GetCAs(ctx, caType)
 }
 
 func (mw loggingMiddleware) CreateCA(ctx context.Context, caName string, ca secrets.Cert) (err error) {

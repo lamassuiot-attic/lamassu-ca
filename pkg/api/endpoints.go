@@ -12,7 +12,9 @@ import (
 
 type Endpoints struct {
 	HealthEndpoint         endpoint.Endpoint
-	GetCAsEndpoint         endpoint.Endpoint
+	GetAllCAsEndpoint      endpoint.Endpoint
+	GetOpsCAsEndpoint      endpoint.Endpoint
+	GetSystemCAsEndpoint   endpoint.Endpoint
 	CreateCAEndpoint       endpoint.Endpoint
 	ImportCAEndpoint       endpoint.Endpoint
 	DeleteCAEndpoint       endpoint.Endpoint
@@ -26,11 +28,20 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 		healthEndpoint = MakeHealthEndpoint(s)
 		healthEndpoint = opentracing.TraceServer(otTracer, "Health")(healthEndpoint)
 	}
-
-	var getCAsEndpoint endpoint.Endpoint
+	var getAllCAsEndpoint endpoint.Endpoint
 	{
-		getCAsEndpoint = MakeGetCAsEndpoint(s)
-		getCAsEndpoint = opentracing.TraceServer(otTracer, "GetCAs")(getCAsEndpoint)
+		getAllCAsEndpoint = MakeGetAllCAsEndpoint(s)
+		getAllCAsEndpoint = opentracing.TraceServer(otTracer, "GetCAs")(getAllCAsEndpoint)
+	}
+	var getOpsCAsEndpoint endpoint.Endpoint
+	{
+		getOpsCAsEndpoint = MakeGetOpsCAsEndpoint(s)
+		getOpsCAsEndpoint = opentracing.TraceServer(otTracer, "GetCAs")(getOpsCAsEndpoint)
+	}
+	var getSystemCAsEndpoint endpoint.Endpoint
+	{
+		getSystemCAsEndpoint = MakeGetSystemCAsEndpoint(s)
+		getSystemCAsEndpoint = opentracing.TraceServer(otTracer, "GetCAs")(getSystemCAsEndpoint)
 	}
 
 	var createCAEndpoint endpoint.Endpoint
@@ -64,7 +75,9 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 	}
 	return Endpoints{
 		HealthEndpoint:         healthEndpoint,
-		GetCAsEndpoint:         getCAsEndpoint,
+		GetAllCAsEndpoint:      getAllCAsEndpoint,
+		GetOpsCAsEndpoint:      getOpsCAsEndpoint,
+		GetSystemCAsEndpoint:   getSystemCAsEndpoint,
 		CreateCAEndpoint:       createCAEndpoint,
 		ImportCAEndpoint:       importCAEndpoint,
 		DeleteCAEndpoint:       deleteCAEndpoint,
@@ -80,10 +93,25 @@ func MakeHealthEndpoint(s Service) endpoint.Endpoint {
 	}
 }
 
-func MakeGetCAsEndpoint(s Service) endpoint.Endpoint {
+func MakeGetAllCAsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		_ = request.(getCAsRequest)
-		CAs, err := s.GetCAs(ctx)
+		CAs, err := s.GetCAs(ctx, secrets.AllCAs)
+		return CAs.Certs, err
+	}
+}
+func MakeGetSystemCAsEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		_ = request.(getCAsRequest)
+		CAs, err := s.GetCAs(ctx, secrets.SystemCAs)
+		return CAs.Certs, err
+	}
+}
+
+func MakeGetOpsCAsEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		_ = request.(getCAsRequest)
+		CAs, err := s.GetCAs(ctx, secrets.OperationsCAs)
 		return CAs.Certs, err
 	}
 }

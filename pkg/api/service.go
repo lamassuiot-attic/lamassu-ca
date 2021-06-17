@@ -10,7 +10,7 @@ import (
 
 type Service interface {
 	Health(ctx context.Context) bool
-	GetCAs(ctx context.Context) (secrets.Certs, error)
+	GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error)
 	CreateCA(ctx context.Context, caName string, ca secrets.Cert) error
 	ImportCA(ctx context.Context, caName string, ca secrets.CAImport) error
 	DeleteCA(ctx context.Context, caName string) error
@@ -43,8 +43,8 @@ func (s *caService) Health(ctx context.Context) bool {
 	return true
 }
 
-func (s *caService) GetCAs(ctx context.Context) (secrets.Certs, error) {
-	CAs, err := s.secrets.GetCAs()
+func (s *caService) GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error) {
+	CAs, err := s.secrets.GetCAs(caType)
 	if err != nil {
 		return secrets.Certs{}, ErrGetCAs
 	}

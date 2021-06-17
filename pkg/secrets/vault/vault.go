@@ -88,6 +88,10 @@ func (vs *vaultSecrets) GetCA(caName string) (secrets.Cert, error) {
 		status = "expired"
 	}
 
+	if !vs.hasEnrollerRole(caName) {
+		status = "revoked"
+	}
+
 	return secrets.Cert{
 		SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
 		Status:       status,
@@ -249,6 +253,11 @@ func (vs *vaultSecrets) DeleteCA(ca string) error {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not delete "+ca+" certificate from Vault")
 		return err
 	}
+	_, err = vs.client.Logical().Delete(ca + "/roles/enroller")
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not delete enroller role from CA "+ca)
+		return err
+	}
 	return nil
 }
 
@@ -399,6 +408,15 @@ func (vs *vaultSecrets) getLamassuSystemCARootCert() (x509.Certificate, error) {
 	}
 	cert, err := DecodeCert("Lamassu-System-CA", []byte(secretCert.CRT))
 	return cert, err
+}
+
+func (vs *vaultSecrets) hasEnrollerRole(caName string) bool {
+	data, _ := vs.client.Logical().Read(caName + "/roles/enroller")
+	if data == nil {
+		return false
+	} else {
+		return true
+	}
 }
 
 func isLamassuSystemCA(lamassuSystemRootCaCert x509.Certificate, cert x509.Certificate) bool {

@@ -142,14 +142,9 @@ func MakeImportCAEndpoint(s Service) endpoint.Endpoint {
 
 func MakeIssuedCertsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		if request != nil {
-			req := request.(caRequest)
-			certs, err := s.GetIssuedCerts(ctx, req.CA)
-			return certs.Certs, err
-		} else {
-			certs, err := s.GetIssuedCerts(ctx, "")
-			return certs.Certs, err
-		}
+		req := request.(caRequest)
+		certs, err := s.GetIssuedCerts(ctx, req.CA, req.caType)
+		return certs.Certs, err
 	}
 }
 
@@ -178,7 +173,8 @@ type GetCAsResponse struct {
 func (r GetCAsResponse) error() error { return r.Err }
 
 type caRequest struct {
-	CA string
+	CA     string
+	caType secrets.CAType
 }
 
 type deleteCARequest struct {

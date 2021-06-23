@@ -14,7 +14,7 @@ type Service interface {
 	CreateCA(ctx context.Context, caName string, ca secrets.Cert) error
 	ImportCA(ctx context.Context, caName string, ca secrets.CAImport) error
 	DeleteCA(ctx context.Context, caName string) error
-	GetIssuedCerts(ctx context.Context, caName string) (secrets.Certs, error)
+	GetIssuedCerts(ctx context.Context, caName string, caType secrets.CAType) (secrets.Certs, error)
 	DeleteCert(ctx context.Context, caName string, serialNumber string) error
 }
 
@@ -25,7 +25,8 @@ type caService struct {
 
 var (
 	//Client
-	errInvalidCA = errors.New("invalid CA, does not exist")
+	errInvalidCA     = errors.New("invalid CA, does not exist")
+	errInvalidCAType = errors.New("invalid ca_type option")
 
 	//Server
 	ErrGetCAs    = errors.New("unable to get CAs from secret engine")
@@ -74,8 +75,8 @@ func (s *caService) DeleteCA(ctx context.Context, CA string) error {
 	return nil
 }
 
-func (s *caService) GetIssuedCerts(ctx context.Context, caName string) (secrets.Certs, error) {
-	certs, err := s.secrets.GetIssuedCerts(caName)
+func (s *caService) GetIssuedCerts(ctx context.Context, caName string, caType secrets.CAType) (secrets.Certs, error) {
+	certs, err := s.secrets.GetIssuedCerts(caName, caType)
 	if err != nil {
 		return secrets.Certs{}, err
 	}

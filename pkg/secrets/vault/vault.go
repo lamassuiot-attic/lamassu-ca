@@ -261,18 +261,19 @@ func (vs *vaultSecrets) DeleteCA(ca string) error {
 	return nil
 }
 
-func (vs *vaultSecrets) GetIssuedCerts(caName string) (secrets.Certs, error) {
+func (vs *vaultSecrets) GetIssuedCerts(caName string, caType secrets.CAType) (secrets.Certs, error) {
 	var Certs secrets.Certs
+	Certs.Certs = make([]secrets.Cert, 0)
 
 	if caName == "" {
-		cas, err := vs.GetCAs(secrets.AllCAs)
+		cas, err := vs.GetCAs(caType)
 		if err != nil {
 			level.Error(vs.logger).Log("err", err, "msg", "Could not get CAs from Vault")
 			return secrets.Certs{}, err
 		}
 		for _, cert := range cas.Certs {
 			if cert.CaName != "" {
-				certsSubset, err := vs.GetIssuedCerts(cert.CaName)
+				certsSubset, err := vs.GetIssuedCerts(cert.CaName, caType)
 				if err != nil {
 					level.Error(vs.logger).Log("err", err, "msg", "Error while getting issued cert subset for CA "+cert.CaName)
 					continue

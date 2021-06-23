@@ -92,7 +92,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 	))
 
 	//ALL certs from ALL CAs
-	r.Methods("GET").Path("/v1/cas/issued").Handler(httptransport.NewServer(
+	r.Methods("GET").Path("/v1/cas/issued/{caType}").Handler(httptransport.NewServer(
 		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetIssuedCertsEndpoint),
 		decodeGetAllIssuedCertsRequest,
 		encodeResponse,
@@ -132,11 +132,26 @@ func decodeGetIssuedCertsRequest(ctx context.Context, r *http.Request) (request 
 	if !ok {
 		return nil, errCAName
 	}
-	return caRequest{CA: CA}, nil
+	return caRequest{CA: CA, caType: secrets.AllCAs}, nil
 }
 
 func decodeGetAllIssuedCertsRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
-	return nil, nil
+	vars := mux.Vars(r)
+	caType, ok := vars["caType"]
+	if !ok {
+		return nil, errCAName
+	}
+
+	if caType == "all" {
+		return caRequest{CA: "", caType: secrets.AllCAs}, nil
+	}
+	if caType == "system" {
+		return caRequest{CA: "", caType: secrets.SystemCAs}, nil
+	}
+	if caType == "ops" {
+		return caRequest{CA: "", caType: secrets.OperationsCAs}, nil
+	}
+	return caRequest{}, errInvalidCAType
 }
 
 func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {

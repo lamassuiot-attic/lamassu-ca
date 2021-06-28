@@ -1,5 +1,7 @@
 package secrets
 
+import "crypto/x509"
+
 type Cert struct {
 	// The status of the CA
 	// required: true
@@ -92,10 +94,12 @@ type Certs struct {
 
 type Secrets interface {
 	GetCAs() (Certs, error)
+	GetCA(aName string) (Cert, error)
 	CreateCA(caName string, ca Cert) error
 	ImportCA(caName string, caImport CAImport) error
 	DeleteCA(caName string) error
 
 	GetIssuedCerts(caName string) (Certs, error)
 	DeleteCert(caName string, serialNumber string) error
+	SignCertificate(caName string, csr *x509.CertificateRequest) ([]byte, error)
 }

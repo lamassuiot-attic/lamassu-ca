@@ -64,6 +64,27 @@ func Login(client *api.Client, roleID string, secretID string) error {
 	return nil
 }
 
+func (vs *vaultSecrets) SignCertificate(caName string, csr *x509.CertificateRequest) ([]byte, error) {
+	signPath := caName + "/sign/enroller"
+	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
+	options := map[string]interface {} {
+		"csr": string(csrBytes),
+		"common_name": csr.Subject.CommonName,
+	}
+	data, err := vs.client.Logical().Write(signPath, options)
+	if err != nil {
+		return nil, err
+	}
+	certData := data.Data["certificate"]
+	certPEMBlock, _ := pem.Decode([]byte(certData.(string)))
+	if certPEMBlock == nil || certPEMBlock.Type != "CERTIFICATE" {
+		err = errors.New("failed to decode PEM block containing certificate")
+		return nil, err
+	}
+
+	return certPEMBlock.Bytes, nil
+}
+
 func (vs *vaultSecrets) GetCA(caName string) (secrets.Cert, error) {
 	resp, err := vs.client.Logical().Read(caName + "/cert/ca")
 	if err != nil {

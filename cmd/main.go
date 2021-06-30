@@ -1,15 +1,20 @@
 package main
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"github.com/globalsign/pemfile"
+	_ "github.com/lamassuiot/lamassu-ca/pkg/docs"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"syscall"
+	"time"
 
-	_ "github.com/lamassuiot/lamassu-ca/pkg/docs"
-
+	"github.com/globalsign/est"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
@@ -24,8 +29,14 @@ import (
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
 
+const (
+	defaultListenAddr   = "https://localhost:8087/v1"
+	configFilePath = "/home/xpb/Desktop/ikl/lamassu/lamassu-ca/pkg/configs/serverconfig.json"
+)
+
 //go:generate swagger generate spec
 func main() {
+
 	var logger log.Logger
 	{
 		logger = log.NewJSONLogger(os.Stdout)
@@ -33,6 +44,66 @@ func main() {
 		logger = log.With(logger, "caller", log.DefaultCaller)
 		logger = level.NewFilter(logger, level.AllowInfo())
 	}
+
+	/*
+	EST
+	*/
+
+	var ca *secrets.VaultService
+
+	// Load and process configuration.
+	estcfg, err := configs.ConfigFromFile(configFilePath)
+	if err != nil {
+		level.Error(logger).Log("failed to read configuration file: %v", err)
+	}
+
+	var serverKey interface{}
+	var serverCerts []*x509.Certificate
+	var clientCACerts []*x509.Certificate
+
+	serverKey, err = pemfile.ReadPrivateKey(estcfg.TLS.Key)
+	if err != nil {
+		level.Error(logger).Log("failed to read server private key   file: %v", err)
+	}
+
+	serverCerts, err = pemfile.ReadCerts(estcfg.TLS.Certs)
+	if err != nil {
+		level.Error(logger).Log("failed to read server certificates from file: %v", err)
+	}
+
+	for _, certPath := range estcfg.TLS.ClientCAs {
+		certs, err := pemfile.ReadCerts(certPath)
+		if err != nil {
+			level.Error(logger).Log("failed to read caservice CA certificates from file: %v", err)
+		}
+		clientCACerts = append(clientCACerts, certs...)
+	}
+
+	var tlsCerts [][]byte
+	for i := range serverCerts {
+		tlsCerts = append(tlsCerts, serverCerts[i].Raw)
+	}
+
+	clientCAs := x509.NewCertPool()
+	for _, cert := range clientCACerts {
+		clientCAs.AddCert(cert)
+	}
+
+	tlsCfg := &tls.Config{
+		MinVersion:       tls.VersionTLS12,
+		CurvePreferences: []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+		ClientAuth:       tls.VerifyClientCertIfGiven,
+		Certificates: []tls.Certificate{
+			{
+				Certificate: tlsCerts,
+				PrivateKey:  serverKey,
+				Leaf:        serverCerts[0],
+			},
+		},
+		ClientCAs: clientCAs,
+	}
+
+	/*********************************************************************/
 
 	cfg, err := configs.NewConfig("ca")
 	if err != nil {
@@ -44,7 +115,7 @@ func main() {
 	auth := auth.NewAuth(cfg.KeycloakHostname, cfg.KeycloakPort, cfg.KeycloakProtocol, cfg.KeycloakRealm, cfg.KeycloakCA)
 	level.Info(logger).Log("msg", "Connection established with authentication system")
 
-	secrets, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, logger)
+	secretsVault, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, logger)
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not start connection with Vault Secret Engine")
 		os.Exit(1)
@@ -69,7 +140,7 @@ func main() {
 
 	var s api.Service
 	{
-		s = api.NewCAService(secrets)
+		s = api.NewCAService(secretsVault)
 		s = api.LoggingMiddleware(logger)(s)
 		s = api.NewInstrumentingMiddleware(
 			kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -112,6 +183,37 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/swagger.json", http.FileServer(http.Dir("./docs")))
 
+
+
+
+	/*
+	EST server
+	*/
+
+	ca = secrets.NewVaultService(secretsVault)
+
+	// Create server mux.TODO: Fill nils
+	r, err := est.NewRouter(&est.ServerConfig{
+		CA:             ca,
+		Logger:         nil,
+		AllowedHosts:   estcfg.AllowedHosts,
+		Timeout:        time.Duration(estcfg.Timeout) * time.Second,
+		RateLimit:      estcfg.RateLimit,
+	})
+	if err != nil {
+		level.Error(logger).Log("failed to create new EST router: %v", err)
+	}
+
+
+	// Create and start server.
+
+	server := &http.Server{
+		Addr:  ":8080" ,
+		Handler: r,
+		TLSConfig: tlsCfg,
+	}
+
+
 	errs := make(chan error)
 	go func() {
 		c := make(chan os.Signal)
@@ -120,9 +222,11 @@ func main() {
 	}()
 
 	go func() {
-		level.Info(logger).Log("transport", "HTTPS", "address", ":"+cfg.Port, "msg", "listening")
+		level.Info(logger).Log("transport", "HTTPS", "address", ":" + cfg.Port, "msg", "listening")
 		errs <- http.ListenAndServeTLS(":"+cfg.Port, cfg.CertFile, cfg.KeyFile, nil)
 	}()
+
+	go server.ListenAndServeTLS("", "")
 
 	level.Info(logger).Log("exit", <-errs)
 	err = consulsd.Deregister()

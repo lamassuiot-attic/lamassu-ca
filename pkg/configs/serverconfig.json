@@ -5,10 +5,10 @@
   },
   "tls": {
     "listen_address": "localhost:8443",
-    "certificates": "/home/ubuntu/Desktop/LAMASSU/lamassu-ca/localhost.crt",
-    "private_key": "/home/ubuntu/Desktop/LAMASSU/lamassu-ca/localhost.key",
+    "certificates": "/home/ikerlan/lamassu/ikerlan-certs/iker.crt",
+    "private_key": "/home/ikerlan/lamassu/ikerlan-certs/iker.key",
     "client_cas": [
-      "/home/ubuntu/Desktop/LAMASSU/lamassu-ca/localhost.crt"
+      "/home/ikerlan/lamassu/ikerlan-certs/iker.crt"
     ]
   },
   "allowed_hosts": [

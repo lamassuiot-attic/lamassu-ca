@@ -5,10 +5,10 @@
   },
   "tls": {
     "listen_address": "localhost:8443",
-    "certificates": "/home/xpb/Desktop/LAMASSU/ca_certs/localhost.crt",
-    "private_key": "/home/xpb/Desktop/LAMASSU/ca_certs/localhost.key",
+    "certificates": "/home/ubuntu/Desktop/LAMASSU/lamassu-ca/localhost.crt",
+    "private_key": "/home/ubuntu/Desktop/LAMASSU/lamassu-ca/localhost.key",
     "client_cas": [
-      "/home/xpb/Desktop/LAMASSU/ca_certs/localhost.crt"
+      "/home/ubuntu/Desktop/LAMASSU/lamassu-ca/localhost.crt"
     ]
   },
   "allowed_hosts": [

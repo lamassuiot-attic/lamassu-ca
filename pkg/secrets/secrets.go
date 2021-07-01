@@ -101,8 +101,8 @@ const (
 )
 
 type Secrets interface {
-	GetCAs() (Certs, error)
-	GetCA(aName string) (Cert, error)
+	GetCAs(CAType) (Certs, error)
+	GetCA(caName string) (Cert, error)
 	CreateCA(caName string, ca Cert) error
 	ImportCA(caName string, caImport CAImport) error
 	DeleteCA(caName string) error

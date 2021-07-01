@@ -4,15 +4,16 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"github.com/globalsign/pemfile"
-	_ "github.com/lamassuiot/lamassu-ca/pkg/docs"
-	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"syscall"
 	"time"
+
+	"github.com/globalsign/pemfile"
+	_ "github.com/lamassuiot/lamassu-ca/pkg/docs"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/globalsign/est"
 	"github.com/go-kit/kit/log"
@@ -30,8 +31,9 @@ import (
 )
 
 const (
-	defaultListenAddr   = "https://localhost:8087/v1"
-	configFilePath = "/home/xpb/Desktop/ikl/lamassu/lamassu-ca/pkg/configs/serverconfig.json"
+	defaultListenAddr = "https://localhost:8087/v1"
+	//configFilePath = "/home/xpb/Desktop/ikl/lamassu/lamassu-ca/pkg/configs/serverconfig.json"
+	configFilePath = "/home/ubuntu/Desktop/LAMASSU/lamassu-ca/pkg/configs/serverconfig.json"
 )
 
 //go:generate swagger generate spec
@@ -46,7 +48,7 @@ func main() {
 	}
 
 	/*
-	EST
+		EST
 	*/
 
 	var ca *secrets.VaultService
@@ -183,36 +185,31 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/swagger.json", http.FileServer(http.Dir("./docs")))
 
-
-
-
 	/*
-	EST server
+		EST server
 	*/
 
 	ca = secrets.NewVaultService(secretsVault)
 
 	// Create server mux.TODO: Fill nils
 	r, err := est.NewRouter(&est.ServerConfig{
-		CA:             ca,
-		Logger:         nil,
-		AllowedHosts:   estcfg.AllowedHosts,
-		Timeout:        time.Duration(estcfg.Timeout) * time.Second,
-		RateLimit:      estcfg.RateLimit,
+		CA:           ca,
+		Logger:       nil,
+		AllowedHosts: estcfg.AllowedHosts,
+		Timeout:      time.Duration(estcfg.Timeout) * time.Second,
+		RateLimit:    estcfg.RateLimit,
 	})
 	if err != nil {
 		level.Error(logger).Log("failed to create new EST router: %v", err)
 	}
 
-
 	// Create and start server.
 
 	server := &http.Server{
-		Addr:  ":8080" ,
-		Handler: r,
+		Addr:      ":8080",
+		Handler:   r,
 		TLSConfig: tlsCfg,
 	}
-
 
 	errs := make(chan error)
 	go func() {
@@ -222,7 +219,7 @@ func main() {
 	}()
 
 	go func() {
-		level.Info(logger).Log("transport", "HTTPS", "address", ":" + cfg.Port, "msg", "listening")
+		level.Info(logger).Log("transport", "HTTPS", "address", ":"+cfg.Port, "msg", "listening")
 		errs <- http.ListenAndServeTLS(":"+cfg.Port, cfg.CertFile, cfg.KeyFile, nil)
 	}()
 

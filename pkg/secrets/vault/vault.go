@@ -67,8 +67,8 @@ func Login(client *api.Client, roleID string, secretID string) error {
 func (vs *vaultSecrets) SignCertificate(caName string, csr *x509.CertificateRequest) ([]byte, error) {
 	signPath := caName + "/sign/enroller"
 	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
-	options := map[string]interface {} {
-		"csr": string(csrBytes),
+	options := map[string]interface{}{
+		"csr":         string(csrBytes),
 		"common_name": csr.Subject.CommonName,
 	}
 	data, err := vs.client.Logical().Write(signPath, options)
@@ -268,7 +268,14 @@ func initPkiSecret(vs *vaultSecrets, CAName string, enrollerTTL int) error {
 
 func (vs *vaultSecrets) DeleteCA(ca string) error {
 	deletePath := ca + "/root"
-	_, err := vs.client.Logical().Delete(deletePath)
+
+	certsToRevoke, err := vs.GetIssuedCerts(ca, secrets.AllCAs)
+	for i := 0; i < len(certsToRevoke.Certs); i++ {
+		err = vs.DeleteCert(ca, certsToRevoke.Certs[i].SerialNumber)
+		level.Warn(vs.logger).Log("err", err, "msg", "Could not revoke issued cert with serial number "+certsToRevoke.Certs[i].SerialNumber)
+	}
+
+	_, err = vs.client.Logical().Delete(deletePath)
 	if err != nil {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not delete "+ca+" certificate from Vault")
 		return err
@@ -385,6 +392,9 @@ func (vs *vaultSecrets) DeleteCert(caName string, serialNumber string) error {
 }
 
 func insertNth(s string, n int) string {
+	if len(s)%2 != 0 {
+		s = "0" + s
+	}
 	var buffer bytes.Buffer
 	var n_1 = n - 1
 	var l_1 = len(s) - 1

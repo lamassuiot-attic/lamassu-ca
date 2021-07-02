@@ -62,7 +62,7 @@ func (ca *VaultService) CACerts(ctx context.Context, aps string, req *http.Reque
 
 func (ca *VaultService) Enroll(ctx context.Context, csr *x509.CertificateRequest, aps string, r *http.Request) (*x509.Certificate, error) {
 
-	bytes, err := ca.secrets.SignCertificate("Lamassu-DMS", csr)
+	bytes, err := ca.secrets.SignCertificate(aps, csr)
 	if err != nil {
 		log.Println("Error on enrolling.\n[ERROR] -", err)
 		return nil, err

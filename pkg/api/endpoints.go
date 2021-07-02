@@ -19,6 +19,7 @@ type Endpoints struct {
 	ImportCAEndpoint       endpoint.Endpoint
 	DeleteCAEndpoint       endpoint.Endpoint
 	GetIssuedCertsEndpoint endpoint.Endpoint
+	GetCertEndpoint        endpoint.Endpoint
 	DeleteCertEndpoint     endpoint.Endpoint
 }
 
@@ -67,6 +68,11 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 		getIssuedCertsEndpoint = MakeIssuedCertsEndpoint(s)
 		getIssuedCertsEndpoint = opentracing.TraceServer(otTracer, "GetIssuedCerts")(getIssuedCertsEndpoint)
 	}
+	var getCertEndpoint endpoint.Endpoint
+	{
+		getCertEndpoint = MakeCertEndpoint(s)
+		getCertEndpoint = opentracing.TraceServer(otTracer, "GetCert")(getCertEndpoint)
+	}
 
 	var deleteCertEndpoint endpoint.Endpoint
 	{
@@ -82,6 +88,7 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 		ImportCAEndpoint:       importCAEndpoint,
 		DeleteCAEndpoint:       deleteCAEndpoint,
 		GetIssuedCertsEndpoint: getIssuedCertsEndpoint,
+		GetCertEndpoint:        getCertEndpoint,
 		DeleteCertEndpoint:     deleteCertEndpoint,
 	}
 }
@@ -148,6 +155,13 @@ func MakeIssuedCertsEndpoint(s Service) endpoint.Endpoint {
 	}
 }
 
+func MakeCertEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(getCertRequest)
+		cert, err := s.GetCert(ctx, req.CaName, req.SerialNumber)
+		return cert, err
+	}
+}
 func MakeDeleteCertEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(deleteCertRequest)
@@ -181,6 +195,10 @@ type deleteCARequest struct {
 	CA string
 }
 
+type getCertRequest struct {
+	CaName       string
+	SerialNumber string
+}
 type deleteCertRequest struct {
 	CaName       string
 	SerialNumber string

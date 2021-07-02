@@ -98,12 +98,18 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
 	))
-	//ALL certs from ALL CAs
 	r.Methods("GET").Path("/v1/cas/{ca}/issued").Handler(httptransport.NewServer(
 		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetIssuedCertsEndpoint),
 		decodeGetIssuedCertsRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
+	))
+
+	r.Methods("GET").Path("/v1/cas/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetCertEndpoint),
+		decodeGetCertRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCert", logger)))...,
 	))
 
 	r.Methods("DELETE").Path("/v1/cas/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
@@ -193,6 +199,18 @@ func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interf
 	return deleteCARequest{CA: CA}, nil
 }
 
+func decodeGetCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	vars := mux.Vars(r)
+	CA, ok := vars["ca"]
+	if !ok {
+		return nil, errCAName
+	}
+	serialNumber, ok := vars["serialNumber"]
+	if !ok {
+		return nil, errSerial
+	}
+	return getCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
+}
 func decodeDeleteCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
 	vars := mux.Vars(r)
 	CA, ok := vars["ca"]

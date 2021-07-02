@@ -288,6 +288,47 @@ func (vs *vaultSecrets) DeleteCA(ca string) error {
 	return nil
 }
 
+func (vs *vaultSecrets) GetCert(caName string, serialNumber string) (secrets.Cert, error) {
+	certResponse, err := vs.client.Logical().Read(caName + "/cert/" + serialNumber)
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not read cert with serial number "+serialNumber+" from CA "+caName)
+		return secrets.Cert{}, err
+	}
+	cert, err := DecodeCert(caName, []byte(certResponse.Data["certificate"].(string)))
+	pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
+	hasExpired := cert.NotAfter.Before(time.Now())
+	status := "issued"
+	if hasExpired {
+		status = "expired"
+	}
+	revocation_time, err := certResponse.Data["revocation_time"].(json.Number).Int64()
+	if err != nil {
+		err = errors.New("revocation_time not an INT for cert " + serialNumber + ".")
+		level.Warn(vs.logger).Log("err", err)
+	}
+	if revocation_time != 0 {
+		status = "revoked"
+	}
+	return secrets.Cert{
+		SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
+		Status:       status,
+		CRT:          certResponse.Data["certificate"].(string),
+		CaName:       caName,
+		PublicKey:    pubKey,
+		C:            strings.Join(cert.Subject.Country, " "),
+		ST:           strings.Join(cert.Subject.Province, " "),
+		L:            strings.Join(cert.Subject.Locality, " "),
+		O:            strings.Join(cert.Subject.Organization, " "),
+		OU:           strings.Join(cert.Subject.OrganizationalUnit, " "),
+		ValidFrom:    cert.NotBefore.String(),
+		ValidTO:      cert.NotAfter.String(),
+		CN:           cert.Subject.CommonName,
+		KeyType:      keyType,
+		KeyBits:      keyBits,
+		KeyStrength:  keyStrength,
+	}, nil
+}
+
 func (vs *vaultSecrets) GetIssuedCerts(caName string, caType secrets.CAType) (secrets.Certs, error) {
 	var Certs secrets.Certs
 	Certs.Certs = make([]secrets.Cert, 0)

@@ -77,8 +77,8 @@ type Cert struct {
 
 	EnrollerTTL int `json:"enroller_ttl,omitempty"`
 
-	ValidFrom string
-	ValidTO   string
+	ValidFrom string `json:"valid_from"`
+	ValidTO   string `json:"valid_to"`
 }
 
 type CAImport struct {
@@ -108,6 +108,7 @@ type Secrets interface {
 	DeleteCA(caName string) error
 
 	GetIssuedCerts(caName string, caType CAType) (Certs, error)
+	GetCert(caName string, serialNumber string) (Cert, error)
 	DeleteCert(caName string, serialNumber string) error
 	SignCertificate(caName string, csr *x509.CertificateRequest) ([]byte, error)
 }

@@ -85,6 +85,15 @@ func (mw *instrumentingMiddleware) GetIssuedCerts(ctx context.Context, caName st
 
 	return mw.next.GetIssuedCerts(ctx, caName, caType)
 }
+func (mw *instrumentingMiddleware) GetCert(ctx context.Context, caName string, serialNumber string) (cert secrets.Cert, err error) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "GetCert", "error", fmt.Sprint(err != nil)}
+		mw.requestCount.With(lvs...).Add(1)
+		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	return mw.next.GetCert(ctx, caName, serialNumber)
+}
 
 func (mw *instrumentingMiddleware) DeleteCert(ctx context.Context, caName string, serialNumber string) (err error) {
 	defer func(begin time.Time) {

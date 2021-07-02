@@ -15,6 +15,7 @@ type Service interface {
 	ImportCA(ctx context.Context, caName string, ca secrets.CAImport) error
 	DeleteCA(ctx context.Context, caName string) error
 	GetIssuedCerts(ctx context.Context, caName string, caType secrets.CAType) (secrets.Certs, error)
+	GetCert(ctx context.Context, caName string, serialNumber string) (secrets.Cert, error)
 	DeleteCert(ctx context.Context, caName string, serialNumber string) error
 }
 
@@ -79,6 +80,13 @@ func (s *caService) GetIssuedCerts(ctx context.Context, caName string, caType se
 	certs, err := s.secrets.GetIssuedCerts(caName, caType)
 	if err != nil {
 		return secrets.Certs{}, err
+	}
+	return certs, nil
+}
+func (s *caService) GetCert(ctx context.Context, caName string, serialNumber string) (secrets.Cert, error) {
+	certs, err := s.secrets.GetCert(caName, serialNumber)
+	if err != nil {
+		return secrets.Cert{}, err
 	}
 	return certs, nil
 }

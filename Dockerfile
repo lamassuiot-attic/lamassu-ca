@@ -5,7 +5,7 @@ WORKDIR /app/cmd
 RUN go mod tidy
 RUN CGO_ENABLED=0 go build -o ca main.go
 
-FROM scratch 
+FROM alpine:3.14
 COPY --from=0 /app/cmd/ca /
 ADD ./docs/swagger.json /docs/swagger.json
 CMD ["/ca"]

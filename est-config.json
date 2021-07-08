@@ -1,0 +1,5 @@
+{
+    "client_cas": [
+        "/certs/dms-ca.crt"
+    ]
+}

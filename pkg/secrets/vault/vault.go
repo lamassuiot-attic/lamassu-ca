@@ -178,6 +178,13 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 	if err != nil {
 		return err
 	}
+
+	tuneOptions := map[string]interface{}{
+		"max_lease_ttl": strconv.Itoa(ca.CaTTL) + "h",
+	}
+
+	vs.client.Logical().Write(CAName+"/tune", tuneOptions)
+
 	options := map[string]interface{}{
 		"key_type":          ca.KeyType,
 		"key_bits":          ca.KeyBits,
@@ -198,6 +205,7 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 }
 
 func (vs *vaultSecrets) ImportCA(CAName string, caImport secrets.CAImport) error {
+	fmt.Println(caImport.PEMBundle)
 	err := initPkiSecret(vs, CAName, caImport.TTL)
 	if err != nil {
 		return err
@@ -205,7 +213,7 @@ func (vs *vaultSecrets) ImportCA(CAName string, caImport secrets.CAImport) error
 	options := map[string]interface{}{
 		"pem_bundle": caImport.PEMBundle,
 	}
-	vs.client.Logical().Write(CAName+"/config/ca", options)
+	_, err = vs.client.Logical().Write(CAName+"/config/ca", options)
 	return nil
 }
 
@@ -525,9 +533,9 @@ func getPublicKeyInfo(cert x509.Certificate) (string, string, int, string) {
 	var keyStrength string = "unknown"
 	switch key {
 	case "RSA":
-		if keyBits <= 2048 {
+		if keyBits < 2048 {
 			keyStrength = "low"
-		} else if keyBits > 2048 && keyBits <= 3072 {
+		} else if keyBits >= 2048 && keyBits < 3072 {
 			keyStrength = "medium"
 		} else {
 			keyStrength = "high"
@@ -535,7 +543,7 @@ func getPublicKeyInfo(cert x509.Certificate) (string, string, int, string) {
 	case "ECDSA":
 		if keyBits <= 128 {
 			keyStrength = "low"
-		} else if keyBits > 128 && keyBits <= 256 {
+		} else if keyBits > 128 && keyBits < 256 {
 			keyStrength = "medium"
 		} else {
 			keyStrength = "high"

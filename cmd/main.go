@@ -2,12 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 	"net/http"
 	"os"
 	"os/signal"
 	"path"
 	"syscall"
+
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
@@ -23,8 +24,9 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
+
 const (
-	defaultListenAddr   = "https://localhost:8087/v1"
+	defaultListenAddr = "https://localhost:8087/v1"
 )
 
 //go:generate swagger generate spec
@@ -130,7 +132,7 @@ func main() {
 
 	ca = secrets.NewVaultService(secretsVault)
 
-	server, _ := estserver.NewServer(ca)
+	server, err := estserver.NewServer(ca)
 
 	errs := make(chan error)
 	go func() {

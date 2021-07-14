@@ -183,8 +183,12 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 		"max_lease_ttl": strconv.Itoa(ca.CaTTL) + "h",
 	}
 
-	vs.client.Logical().Write(CAName+"/tune", tuneOptions)
-
+	_, err = vs.client.Logical().Write(CAName+"/tune", tuneOptions)
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not tune CA "+CAName+")
+		return err
+	}
+					   
 	options := map[string]interface{}{
 		"key_type":          ca.KeyType,
 		"key_bits":          ca.KeyBits,

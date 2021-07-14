@@ -185,7 +185,7 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 
 	_, err = vs.client.Logical().Write(CAName+"/tune", tuneOptions)
 	if err != nil {
-		level.Error(vs.logger).Log("err", err, "msg", "Could not tune CA "+CAName+")
+		level.Error(vs.logger).Log("err", err, "msg", "Could not tune CA "+CAName)
 		return err
 	}
 					   

@@ -174,7 +174,7 @@ func (vs *vaultSecrets) GetCAs(caType secrets.CAType) (secrets.Certs, error) {
 }
 
 func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
-	err := initPkiSecret(vs, CAName, ca.CaTTL)
+	err := initPkiSecret(vs, CAName, ca.EnrollerTTL)
 	if err != nil {
 		return err
 	}

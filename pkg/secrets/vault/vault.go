@@ -65,7 +65,7 @@ func Login(client *api.Client, roleID string, secretID string) error {
 }
 
 func (vs *vaultSecrets) SignCertificate(caName string, csr *x509.CertificateRequest) ([]byte, error) {
-	signPath := caName + "/sign/enroller"
+	signPath := caName + "/sign-verbatim/enroller"
 	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
 	options := map[string]interface{}{
 		"csr":         string(csrBytes),

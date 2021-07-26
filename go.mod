@@ -11,15 +11,13 @@ require (
 	github.com/gorilla/mux v1.7.4
 	github.com/gorilla/websocket v1.4.2 // indirect
 	github.com/hashicorp/consul/api v1.4.0
-	github.com/hashicorp/vault v1.6.0
-	github.com/hashicorp/vault/api v1.1.0
-	github.com/hashicorp/vault/sdk v0.1.14-0.20201109203410-5e6e24692b32
+	github.com/hashicorp/vault v1.7.3
+	github.com/hashicorp/vault/api v1.1.1
+	github.com/hashicorp/vault/sdk v0.2.1
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/lamassuiot/lamassu-est v0.1.2
+	github.com/lamassuiot/lamassu-est v0.1.3
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/prometheus/client_golang v1.8.0
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
-	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
-	golang.org/x/text v0.3.5 // indirect
 	gopkg.in/ini.v1 v1.51.0 // indirect
 )

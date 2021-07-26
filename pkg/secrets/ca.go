@@ -68,15 +68,6 @@ func (ca *VaultService) Enroll(ctx context.Context, csr *x509.CertificateRequest
 		return nil, err
 	}
 
-	/*
-		a := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: bytes})
-		fmt.Println(string(a))
-		block, _ := pem.Decode(bytes)
-
-		/*if block == nil {
-			panic("failed to parse certificate PEM")
-		}*/
-
 	crt, err := x509.ParseCertificate(bytes)
 	if err != nil {
 		log.Println("Error on response.\n[ERROR] -", err)
@@ -89,7 +80,17 @@ func (ca *VaultService) CSRAttrs(ctx context.Context, aps string, r *http.Reques
 }
 
 func (ca *VaultService) Reenroll(ctx context.Context, cert *x509.Certificate, csr *x509.CertificateRequest, aps string, r *http.Request) (*x509.Certificate, error) {
-	return nil, nil
+	bytes, err := ca.secrets.SignCertificate(aps, csr)
+	if err != nil {
+		log.Println("Error on enrolling.\n[ERROR] -", err)
+		return nil, err
+	}
+
+	crt, err := x509.ParseCertificate(bytes)
+	if err != nil {
+		log.Println("Error on response.\n[ERROR] -", err)
+	}
+	return crt, nil
 }
 
 func (ca *VaultService) ServerKeyGen(ctx context.Context, csr *x509.CertificateRequest, aps string, r *http.Request) (*x509.Certificate, []byte, error) {

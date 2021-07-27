@@ -132,7 +132,7 @@ func main() {
 
 	ca = secrets.NewVaultService(secretsVault)
 
-	server, err := estserver.NewServer(ca)
+	server, err := estserver.NewServerCa(ca)
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not start est server")
 		os.Exit(1)

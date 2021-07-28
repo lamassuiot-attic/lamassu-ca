@@ -2,4 +2,4 @@ cmd/__debug_bin
 no-git/*
 no-git/**
 no-git/
-no-git
+nogit

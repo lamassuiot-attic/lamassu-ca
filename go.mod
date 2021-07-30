@@ -15,7 +15,7 @@ require (
 	github.com/hashicorp/vault/api v1.1.1
 	github.com/hashicorp/vault/sdk v0.2.1
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/lamassuiot/lamassu-est v0.1.5-0.20210727124943-4ff145aac67c // indirect
+	github.com/lamassuiot/lamassu-est v0.1.5-0.20210729064400-7d668156c272 // indirect
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/prometheus/client_golang v1.8.0
 	github.com/uber/jaeger-client-go v2.25.0+incompatible

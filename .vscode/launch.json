@@ -9,7 +9,7 @@
             "type": "go",
             "request": "launch",
             "mode": "auto",
-            "envFile": "${workspaceFolder}/no-git/.env",
+            "envFile": "${workspaceFolder}/nogit/.env",
             "program": "${workspaceFolder}/cmd/main.go",
             "env": {},
             "args": []

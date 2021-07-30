@@ -965,6 +965,8 @@ github.com/lamassuiot/lamassu-est v0.1.5-0.20210727092435-92dfa24e822f h1:qKhDwA
 github.com/lamassuiot/lamassu-est v0.1.5-0.20210727092435-92dfa24e822f/go.mod h1:LFXOGvUOXjPb8OXSsZNFi1KOGf6tEjYwTqH5njwn78c=
 github.com/lamassuiot/lamassu-est v0.1.5-0.20210727124943-4ff145aac67c h1:DhI+Eyg3ModItYzu9lOCsTcklJyVj1u/IbcToj4iX3U=
 github.com/lamassuiot/lamassu-est v0.1.5-0.20210727124943-4ff145aac67c/go.mod h1:LFXOGvUOXjPb8OXSsZNFi1KOGf6tEjYwTqH5njwn78c=
+github.com/lamassuiot/lamassu-est v0.1.5-0.20210729064400-7d668156c272 h1:oMatQOtayzytyT6B1UrNFwvks5rRwaMGFf3fOoStRL8=
+github.com/lamassuiot/lamassu-est v0.1.5-0.20210729064400-7d668156c272/go.mod h1:LFXOGvUOXjPb8OXSsZNFi1KOGf6tEjYwTqH5njwn78c=
 github.com/lestrrat-go/jwx v0.9.0/go.mod h1:iEoxlYfZjvoGpuWwxUz+eR5e6KTJGsaRcy/YNA/UnBk=
 github.com/lib/pq v0.0.0-20180327071824-d34b9ff171c2/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=
 github.com/lib/pq v1.1.1/go.mod h1:5WUZQaWbwv1U+lTReE5YruASi9Al49XbQIvNi/34Woo=

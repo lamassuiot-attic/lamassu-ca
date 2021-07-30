@@ -7,7 +7,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/globalsign/est"
+	"github.com/lamassuiot/est"
 )
 
 type VaultService struct {

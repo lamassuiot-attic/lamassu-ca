@@ -58,7 +58,7 @@ func main() {
 	auth := auth.NewAuth(cfg.KeycloakHostname, cfg.KeycloakPort, cfg.KeycloakProtocol, cfg.KeycloakRealm, cfg.KeycloakCA)
 	level.Info(logger).Log("msg", "Connection established with authentication system")
 
-	secretsVault, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, logger)
+	secretsVault, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, cfg.OcspUrl, logger)
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not start connection with Vault Secret Engine")
 		os.Exit(1)

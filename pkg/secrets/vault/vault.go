@@ -29,9 +29,10 @@ type vaultSecrets struct {
 	roleID   string
 	secretID string
 	logger   log.Logger
+	ocspUrl  string
 }
 
-func NewVaultSecrets(address string, roleID string, secretID string, CA string, logger log.Logger) (*vaultSecrets, error) {
+func NewVaultSecrets(address string, roleID string, secretID string, CA string, ocspUrl string, logger log.Logger) (*vaultSecrets, error) {
 	conf := api.DefaultConfig()
 	conf.Address = strings.ReplaceAll(conf.Address, "https://127.0.0.1:8200", address)
 	tlsConf := &api.TLSConfig{CACert: CA}
@@ -47,7 +48,7 @@ func NewVaultSecrets(address string, roleID string, secretID string, CA string, 
 		level.Error(logger).Log("err", err, "msg", "Could not login into Vault")
 		return nil, err
 	}
-	return &vaultSecrets{client: client, roleID: roleID, secretID: secretID, logger: logger}, nil
+	return &vaultSecrets{client: client, roleID: roleID, secretID: secretID, ocspUrl: ocspUrl, logger: logger}, nil
 }
 
 func Login(client *api.Client, roleID string, secretID string) error {
@@ -188,7 +189,7 @@ func (vs *vaultSecrets) CreateCA(CAName string, ca secrets.Cert) error {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not tune CA "+CAName)
 		return err
 	}
-					   
+
 	options := map[string]interface{}{
 		"key_type":          ca.KeyType,
 		"key_bits":          ca.KeyBits,
@@ -275,6 +276,18 @@ func initPkiSecret(vs *vaultSecrets, CAName string, enrollerTTL int) error {
 		level.Error(vs.logger).Log("err", err, "msg", "Could not create a new role for "+CAName+" CA on Vault")
 		return err
 	}
+
+	_, err = vs.client.Logical().Write(CAName+"/config/urls", map[string]interface{}{
+		"ocsp_servers": []string{
+			vs.ocspUrl,
+		},
+	})
+
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not configure OCSP information for "+CAName+" CA on Vault")
+		return err
+	}
+
 	return nil
 }
 

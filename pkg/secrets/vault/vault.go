@@ -320,6 +320,10 @@ func (vs *vaultSecrets) GetCert(caName string, serialNumber string) (secrets.Cer
 		return secrets.Cert{}, err
 	}
 	cert, err := DecodeCert(caName, []byte(certResponse.Data["certificate"].(string)))
+	if err != nil {
+		level.Error(vs.logger).Log("err", err, "msg", "Could not decode certificate serial number "+serialNumber+" from CA "+caName)
+		return secrets.Cert{}, err
+	}
 	pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
 	hasExpired := cert.NotAfter.Before(time.Now())
 	status := "issued"

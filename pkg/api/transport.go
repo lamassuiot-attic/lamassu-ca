@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/lamassuiot/lamassu-ca/pkg/auth"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/tracing/opentracing"
@@ -26,7 +27,8 @@ type errorer interface {
 }
 
 var (
-	errCAName = errors.New("ca name not provided")
+	errCAName = errors.New("CA name not provided")
+	errSerial = errors.New("Serial Number not provided")
 )
 
 var claims = &auth.KeycloakClaims{}
@@ -48,17 +50,38 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 	))
 
 	r.Methods("GET").Path("/v1/cas").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetCAsEndpoint),
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetAllCAsEndpoint),
 		decodeGetCAsRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,
 	))
 
-	r.Methods("GET").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetCAInfoEndpoint),
-		decodeGetCAInfoRequest,
+	r.Methods("GET").Path("/v1/cas/ops").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetOpsCAsEndpoint),
+		decodeGetCAsRequest,
 		encodeResponse,
-		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAInfo", logger)))...,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,
+	))
+
+	r.Methods("GET").Path("/v1/cas/system").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetSystemCAsEndpoint),
+		decodeGetCAsRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,
+	))
+
+	r.Methods("POST").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.CreateCAEndpoint),
+		decodeCreateCARequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "CreateCA", logger)))...,
+	))
+
+	r.Methods("POST").Path("/v1/cas/import/{ca}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.ImportCAEndpoint),
+		decodeImportCARequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "ImportCA", logger)))...,
 	))
 
 	r.Methods("DELETE").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
@@ -66,6 +89,34 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 		decodeDeleteCARequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "DeleteCA", logger)))...,
+	))
+
+	//ALL certs from ALL CAs
+	r.Methods("GET").Path("/v1/cas/issued/{caType}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetIssuedCertsEndpoint),
+		decodeGetAllIssuedCertsRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
+	))
+	r.Methods("GET").Path("/v1/cas/{ca}/issued").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetIssuedCertsEndpoint),
+		decodeGetIssuedCertsRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
+	))
+
+	r.Methods("GET").Path("/v1/cas/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetCertEndpoint),
+		decodeGetCertRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCert", logger)))...,
+	))
+
+	r.Methods("DELETE").Path("/v1/cas/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.DeleteCertEndpoint),
+		decodeDeleteCertRequest,
+		encodeResponse,
+		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "DeleteCert", logger)))...,
 	))
 
 	return r
@@ -81,13 +132,62 @@ func decodeGetCAsRequest(ctx context.Context, r *http.Request) (request interfac
 	return req, nil
 }
 
-func decodeGetCAInfoRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+func decodeGetIssuedCertsRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
 	vars := mux.Vars(r)
 	CA, ok := vars["ca"]
 	if !ok {
 		return nil, errCAName
 	}
-	return getCAInfoRequest{CA: CA}, nil
+	return caRequest{CA: CA, caType: secrets.AllCAs}, nil
+}
+
+func decodeGetAllIssuedCertsRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	vars := mux.Vars(r)
+	caType, ok := vars["caType"]
+	if !ok {
+		return nil, errCAName
+	}
+
+	if caType == "all" {
+		return caRequest{CA: "", caType: secrets.AllCAs}, nil
+	}
+	if caType == "system" {
+		return caRequest{CA: "", caType: secrets.SystemCAs}, nil
+	}
+	if caType == "ops" {
+		return caRequest{CA: "", caType: secrets.OperationsCAs}, nil
+	}
+	return caRequest{}, errInvalidCAType
+}
+
+func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	vars := mux.Vars(r)
+	var caRequestInfo secrets.Cert
+	json.NewDecoder(r.Body).Decode((&caRequestInfo))
+	if err != nil {
+		return nil, errors.New("Cannot decode JSON request")
+	}
+
+	caName, ok := vars["ca"]
+	if !ok {
+		return nil, errCAName
+	}
+	return createCARequest{CAName: caName, CA: caRequestInfo}, nil
+}
+
+func decodeImportCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	vars := mux.Vars(r)
+	var importCaRequest secrets.CAImport
+	json.NewDecoder(r.Body).Decode((&importCaRequest))
+	if err != nil {
+		return nil, errors.New("Cannot decode JSON request")
+	}
+
+	caName, ok := vars["ca"]
+	if !ok {
+		return nil, errCAName
+	}
+	return importCARequest{CAName: caName, CAImport: importCaRequest}, nil
 }
 
 func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -99,10 +199,38 @@ func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interf
 	return deleteCARequest{CA: CA}, nil
 }
 
+func decodeGetCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	vars := mux.Vars(r)
+	CA, ok := vars["ca"]
+	if !ok {
+		return nil, errCAName
+	}
+	serialNumber, ok := vars["serialNumber"]
+	if !ok {
+		return nil, errSerial
+	}
+	return getCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
+}
+func decodeDeleteCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
+	vars := mux.Vars(r)
+	CA, ok := vars["ca"]
+	if !ok {
+		return nil, errCAName
+	}
+	serialNumber, ok := vars["serialNumber"]
+	if !ok {
+		return nil, errSerial
+	}
+	return deleteCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
+}
+
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {
 	if e, ok := response.(errorer); ok && e.error() != nil {
 		// Not a Go kit transport error, but a business-logic error.
 		// Provide those as HTTP errors.
+
+		// https://medium.com/@ozdemir.zynl/rest-api-error-handling-in-go-behavioral-type-assertion-509d93636afd
+		//
 		encodeError(ctx, e.error(), w)
 
 		return nil
@@ -112,15 +240,22 @@ func encodeResponse(ctx context.Context, w http.ResponseWriter, response interfa
 }
 
 func encodeError(_ context.Context, err error, w http.ResponseWriter) {
-	if err == nil {
+	/*if err == nil {
 		panic("encodeError with nil error")
-	}
-	http.Error(w, err.Error(), codeFrom(err))
+	}*/
+	//http.Error(w, err.Error(), codeFrom(err))
+	w.WriteHeader(codeFrom(err))
+	json.NewEncoder(w).Encode(errorWrapper{Error: err.Error()})
+
+}
+
+type errorWrapper struct {
+	Error string `json:"error"`
 }
 
 func codeFrom(err error) int {
 	switch err {
-	case errCAName:
+	case ErrGetCAs:
 		return http.StatusBadRequest
 	default:
 		return http.StatusInternalServerError

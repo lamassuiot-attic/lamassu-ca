@@ -1,0 +1,23 @@
+{
+  "ca": {
+    "certificates": "",
+    "private_key": ""
+  },
+  "tls": {
+    "listen_address": "localhost:8443",
+    "certificates": "/home/ikerlan/lamassu/ikerlan-certs/iker.crt",
+    "private_key": "/home/ikerlan/lamassu/ikerlan-certs/iker.key",
+    "client_cas": [
+      "/home/ikerlan/lamassu/ikerlan-certs/iker.crt"
+    ]
+  },
+  "allowed_hosts": [
+    "localhost",
+    "127.0.0.1",
+    "[::1]"
+  ],
+  "healthcheck_password": "xyzzy",
+  "rate_limit": 150,
+  "timeout": 30,
+  "log_file": "/path/to/log.file"
+}

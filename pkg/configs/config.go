@@ -9,6 +9,8 @@ type Config struct {
 	EnrollerUIPort     string
 	EnrollerUIProtocol string
 
+	OcspUrl string
+
 	ConsulProtocol string
 	ConsulHost     string
 	ConsulPort     string

@@ -8,25 +8,30 @@ import (
 	"path"
 	"syscall"
 
-	_ "github.com/lamassuiot/lamassu-ca/pkg/docs"
-
-	"github.com/lamassuiot/lamassu-ca/pkg/api"
-	"github.com/lamassuiot/lamassu-ca/pkg/auth"
-	"github.com/lamassuiot/lamassu-ca/pkg/configs"
-	"github.com/lamassuiot/lamassu-ca/pkg/discovery/consul"
-	"github.com/lamassuiot/lamassu-ca/pkg/secrets/vault"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/lamassuiot/lamassu-ca/pkg/api"
+	"github.com/lamassuiot/lamassu-ca/pkg/auth"
+	"github.com/lamassuiot/lamassu-ca/pkg/configs"
+	"github.com/lamassuiot/lamassu-ca/pkg/discovery/consul"
+	"github.com/lamassuiot/lamassu-ca/pkg/secrets/vault"
+	"github.com/lamassuiot/lamassu-est/server/estserver"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
 
+const (
+	defaultListenAddr = "https://localhost:8087/v1"
+)
+
 //go:generate swagger generate spec
 func main() {
+
 	var logger log.Logger
 	{
 		logger = log.NewJSONLogger(os.Stdout)
@@ -34,6 +39,14 @@ func main() {
 		logger = log.With(logger, "caller", log.DefaultCaller)
 		logger = level.NewFilter(logger, level.AllowInfo())
 	}
+
+	/*
+		EST
+	*/
+
+	var ca *secrets.VaultService
+
+	/*********************************************************************/
 
 	cfg, err := configs.NewConfig("ca")
 	if err != nil {
@@ -45,7 +58,7 @@ func main() {
 	auth := auth.NewAuth(cfg.KeycloakHostname, cfg.KeycloakPort, cfg.KeycloakProtocol, cfg.KeycloakRealm, cfg.KeycloakCA)
 	level.Info(logger).Log("msg", "Connection established with authentication system")
 
-	secrets, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, logger)
+	secretsVault, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, cfg.OcspUrl, logger)
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not start connection with Vault Secret Engine")
 		os.Exit(1)
@@ -70,7 +83,7 @@ func main() {
 
 	var s api.Service
 	{
-		s = api.NewCAService(secrets)
+		s = api.NewCAService(secretsVault)
 		s = api.LoggingMiddleware(logger)(s)
 		s = api.NewInstrumentingMiddleware(
 			kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -113,6 +126,18 @@ func main() {
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/swagger.json", http.FileServer(http.Dir("./docs")))
 
+	/*
+		EST server
+	*/
+
+	ca = secrets.NewVaultService(secretsVault)
+
+	server, err := estserver.NewServerCa(ca)
+	if err != nil {
+		level.Error(logger).Log("err", err, "msg", "Could not start est server")
+		os.Exit(1)
+	}
+
 	errs := make(chan error)
 	go func() {
 		c := make(chan os.Signal)
@@ -125,6 +150,8 @@ func main() {
 		errs <- http.ListenAndServeTLS(":"+cfg.Port, cfg.CertFile, cfg.KeyFile, nil)
 	}()
 
+	go server.ListenAndServeTLS("", "")
+
 	level.Info(logger).Log("exit", <-errs)
 	err = consulsd.Deregister()
 	if err != nil {
@@ -136,13 +163,15 @@ func main() {
 
 func accessControl(h http.Handler, enrollerUIProtocol string, enrollerUIHost string, enrollerUIPort string) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var uiURL string
+		/*var uiURL string
 		if enrollerUIPort == "" {
 			uiURL = enrollerUIProtocol + "://" + enrollerUIHost
 		} else {
 			uiURL = enrollerUIProtocol + "://" + enrollerUIHost + ":" + enrollerUIPort
-		}
-		w.Header().Set("Access-Control-Allow-Origin", uiURL)
+		}*/
+		//w.Header().Set("Access-Control-Allow-Origin", "http://127.0.0.1:3000")
+		//w.Header().Set("Access-Control-Allow-Origin", uiURL)
+		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Origin, Content-Type, Authorization")
 

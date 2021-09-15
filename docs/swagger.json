@@ -11,7 +11,7 @@
   },
   "servers": [
     {
-      "url": "https://jon.io:8087/v1"
+      "url": "https://dev.lamassu.io:8087/v1"
     }
   ],
   "paths": {
@@ -22,15 +22,12 @@
         ],
         "summary": "Create CA swagger",
         "operationId": "createCA",
-        "parameters": [
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "description": "JWT Toker usar Bearer {token}",
-            "schema": {
-              "type": "string"
-            }
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "ca",
             "in": "path",
@@ -72,15 +69,12 @@
         ],
         "summary": "Deletes or revokes CA from Vault.",
         "operationId": "deleteCA",
-        "parameters": [
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "description": "JWT Toker usar Bearer {token}",
-            "schema": {
-              "type": "string"
-            }
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "ca",
             "in": "path",
@@ -116,14 +110,9 @@
         ],
         "summary": "Gets detailed CA information from Vault.",
         "operationId": "getCAInfo",
-        "parameters": [
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "description": "JWT Toker usar Bearer {token}",
-            "schema": {
-              "type": "string"
-            }
+            "bearerAuth": []
           }
         ],
         "responses": {
@@ -155,15 +144,12 @@
         ],
         "summary": "Import CA",
         "operationId": "importCA",
-        "parameters": [
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "description": "JWT Toker usar Bearer {token}",
-            "schema": {
-              "type": "string"
-            }
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "ca",
             "in": "path",
@@ -207,15 +193,12 @@
         ],
         "summary": "Get issued certs",
         "operationId": "Getsissuedcerts",
-        "parameters": [
+        "security": [
           {
-            "name": "Authorization",
-            "in": "header",
-            "description": "JWT Toker usar Bearer {token}",
-            "schema": {
-              "type": "string"
-            }
-          },
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
           {
             "name": "caType",
             "in": "path",
@@ -247,6 +230,11 @@
         ],
         "summary": "Delete certificate",
         "operationId": "Deletecert",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
         "parameters": [
           {
             "name": "ca",
@@ -262,14 +250,6 @@
             "in": "path",
             "description": "Serial Number",
             "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "Authorization",
-            "in": "header",
-            "description": "JWT Toker usar Bearer {token}",
             "schema": {
               "type": "string"
             }
@@ -330,29 +310,6 @@
           }
         },
         "description": "The parameters for importing a CA",
-        "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
-      },
-      "DeleteCertRequest": {
-        "required": [
-          "ca_name",
-          "serialnumber"
-        ],
-        "type": "object",
-        "properties": {
-          "ca_name": {
-            "type": "string",
-            "description": "The name of the CA",
-            "example": "Lamassu-Root-CA1-RSA4096",
-            "x-go-name": "CaName"
-          },
-          "serialnumber": {
-            "type": "string",
-            "description": "The serial number of the CA",
-            "example": "7e:36:13:a5:31:9f:4a:76:10:64:2e:9b:0a:11:07:b7:e6:3e:cf:94",
-            "x-go-name": "SerialNumber"
-          }
-        },
-        "description": "Delete cert request parameters",
         "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
       },
       "ImportCARequest": {
@@ -503,22 +460,6 @@
           }
         },
         "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
-      },
-      "CaRequest": {
-        "required": [
-          "catype"
-        ],
-        "type": "object",
-        "properties": {
-          "catype": {
-            "type": "string",
-            "description": "The name of the CA Type",
-            "example": "SYSTEM_CAS | OPERATIONS_CAS | ALL_CAS",
-            "x-go-name": "caType"
-          }
-        },
-        "description": "Get issued Cert",
-        "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
       }
     },
     "responses": {
@@ -542,6 +483,18 @@
           }
         }
       }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
     }
-  }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ]
 }

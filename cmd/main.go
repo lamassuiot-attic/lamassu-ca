@@ -25,10 +25,6 @@ import (
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
 
-const (
-	defaultListenAddr = "https://localhost:8087/v1"
-)
-
 //go:generate swagger generate spec
 func main() {
 
@@ -122,7 +118,7 @@ func main() {
 		SpecURL:  path.Join("/", "swagger.json"),
 		Path:     "docs",
 	}, mux))
-	http.Handle("/", accessControl(mux, cfg.EnrollerUIProtocol, cfg.EnrollerUIHost, cfg.EnrollerUIPort))
+	http.Handle("/", accessControl(mux, "", "", ""))
 	http.Handle("/metrics", promhttp.Handler())
 	http.Handle("/swagger.json", http.FileServer(http.Dir("./docs")))
 

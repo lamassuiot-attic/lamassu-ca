@@ -138,7 +138,7 @@ func decodeGetIssuedCertsRequest(ctx context.Context, r *http.Request) (request 
 	if !ok {
 		return nil, errCAName
 	}
-	return caRequest{CA: CA, caType: secrets.AllCAs}, nil
+	return CaRequest{CA: CA, caType: secrets.AllCAs}, nil
 }
 
 func decodeGetAllIssuedCertsRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -149,15 +149,15 @@ func decodeGetAllIssuedCertsRequest(ctx context.Context, r *http.Request) (reque
 	}
 
 	if caType == "all" {
-		return caRequest{CA: "", caType: secrets.AllCAs}, nil
+		return CaRequest{CA: "", caType: secrets.AllCAs}, nil
 	}
 	if caType == "system" {
-		return caRequest{CA: "", caType: secrets.SystemCAs}, nil
+		return CaRequest{CA: "", caType: secrets.SystemCAs}, nil
 	}
 	if caType == "ops" {
-		return caRequest{CA: "", caType: secrets.OperationsCAs}, nil
+		return CaRequest{CA: "", caType: secrets.OperationsCAs}, nil
 	}
-	return caRequest{}, errInvalidCAType
+	return CaRequest{}, errInvalidCAType
 }
 
 func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -172,7 +172,7 @@ func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interf
 	if !ok {
 		return nil, errCAName
 	}
-	return createCARequest{CAName: caName, CA: caRequestInfo}, nil
+	return CreateCARequest{CAName: caName, CA: caRequestInfo}, nil
 }
 
 func decodeImportCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -187,7 +187,7 @@ func decodeImportCARequest(ctx context.Context, r *http.Request) (request interf
 	if !ok {
 		return nil, errCAName
 	}
-	return importCARequest{CAName: caName, CAImport: importCaRequest}, nil
+	return ImportCARequest{CAName: caName, CAImport: importCaRequest}, nil
 }
 
 func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -196,7 +196,7 @@ func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interf
 	if !ok {
 		return nil, errCAName
 	}
-	return deleteCARequest{CA: CA}, nil
+	return DeleteCARequest{CA: CA}, nil
 }
 
 func decodeGetCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -209,7 +209,7 @@ func decodeGetCertRequest(ctx context.Context, r *http.Request) (request interfa
 	if !ok {
 		return nil, errSerial
 	}
-	return getCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
+	return GetCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
 }
 func decodeDeleteCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
 	vars := mux.Vars(r)
@@ -221,7 +221,7 @@ func decodeDeleteCertRequest(ctx context.Context, r *http.Request) (request inte
 	if !ok {
 		return nil, errSerial
 	}
-	return deleteCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
+	return DeleteCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {

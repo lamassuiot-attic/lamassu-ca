@@ -125,7 +125,7 @@ func MakeGetOpsCAsEndpoint(s Service) endpoint.Endpoint {
 
 func MakeCreateCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(createCARequest)
+		req := request.(CreateCARequest)
 		err = s.CreateCA(ctx, req.CAName, req.CA)
 		return nil, err
 	}
@@ -133,7 +133,7 @@ func MakeCreateCAEndpoint(s Service) endpoint.Endpoint {
 
 func MakeDeleteCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(deleteCARequest)
+		req := request.(DeleteCARequest)
 		err = s.DeleteCA(ctx, req.CA)
 		return errorResponse{Err: err}, nil
 	}
@@ -141,7 +141,7 @@ func MakeDeleteCAEndpoint(s Service) endpoint.Endpoint {
 
 func MakeImportCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(importCARequest)
+		req := request.(ImportCARequest)
 		err = s.ImportCA(ctx, req.CAName, req.CAImport)
 		return errorResponse{Err: err}, nil
 	}
@@ -149,7 +149,7 @@ func MakeImportCAEndpoint(s Service) endpoint.Endpoint {
 
 func MakeIssuedCertsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(caRequest)
+		req := request.(CaRequest)
 		certs, err := s.GetIssuedCerts(ctx, req.CA, req.caType)
 		return certs.Certs, err
 	}
@@ -157,14 +157,14 @@ func MakeIssuedCertsEndpoint(s Service) endpoint.Endpoint {
 
 func MakeCertEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(getCertRequest)
+		req := request.(GetCertRequest)
 		cert, err := s.GetCert(ctx, req.CaName, req.SerialNumber)
 		return cert, err
 	}
 }
 func MakeDeleteCertEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		req := request.(deleteCertRequest)
+		req := request.(DeleteCertRequest)
 		err = s.DeleteCert(ctx, req.CaName, req.SerialNumber)
 		return errorResponse{Err: err}, nil
 	}
@@ -186,29 +186,29 @@ type GetCAsResponse struct {
 
 func (r GetCAsResponse) error() error { return r.Err }
 
-type caRequest struct {
+type CaRequest struct {
 	CA     string
 	caType secrets.CAType
 }
 
-type deleteCARequest struct {
+type DeleteCARequest struct {
 	CA string
 }
 
-type getCertRequest struct {
+type GetCertRequest struct {
 	CaName       string
 	SerialNumber string
 }
-type deleteCertRequest struct {
+type DeleteCertRequest struct {
 	CaName       string
 	SerialNumber string
 }
 
-type createCARequest struct {
+type CreateCARequest struct {
 	CAName string
 	CA     secrets.Cert
 }
-type importCARequest struct {
+type ImportCARequest struct {
 	CAName   string
 	CAImport secrets.CAImport
 }

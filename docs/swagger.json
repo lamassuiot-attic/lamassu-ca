@@ -1,252 +1,500 @@
 {
-  "consumes": [
-    "application/json"
-  ],
-  "produces": [
-    "application/json"
-  ],
-  "schemes": [
-    "https"
-  ],
-  "swagger": "2.0",
+  "openapi": "3.0.1",
   "info": {
-    "description": "The purpose of Lamassu CA is to provide a wrapper API to manage\nCAs registered in Lamassu PKI.",
     "title": "Lamassu CA.",
+    "description": "The purpose of Lamassu CA is to provide a wrapper API to manage\nCAs registered in Lamassu PKI.",
     "license": {
       "name": "MPL-2.0",
       "url": "https://opensource.org/licenses/MPL-2.0"
     },
     "version": "0.0.1"
   },
-  "basePath": "/v1",
+  "servers": [
+    {
+      "url": "https://dev.lamassu.io:8087/v1"
+    }
+  ],
   "paths": {
-    "/cas": {
-      "get": {
-        "produces": [
-          "application/json"
-        ],
-        "tags": [
-          "lamassu-ca"
-        ],
-        "summary": "Gets CAs information from Vault.",
-        "operationId": "getCAs",
-        "responses": {
-          "200": {
-            "$ref": "#/responses/getCAsResponse"
-          },
-          "500": {
-            "description": ""
-          },
-          "default": {
-            "$ref": "#/responses/getCAsResponse"
-          }
-        }
-      }
-    },
     "/cas/{ca}": {
-      "get": {
-        "produces": [
-          "application/json"
-        ],
+      "post": {
         "tags": [
           "lamassu-ca"
         ],
-        "summary": "Gets detailed CA information from Vault.",
-        "operationId": "getCAInfo",
+        "summary": "Create CA",
+        "operationId": "createCA",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ca",
+            "in": "path",
+            "description": "CA Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Create CA parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreateCARequest"
+              }
+            }
+          },
+          "required": true
+        },
         "responses": {
           "200": {
-            "$ref": "#/responses/getCAInfoResponse"
-          },
-          "400": {
-            "description": ""
-          },
-          "500": {
-            "description": ""
-          },
-          "default": {
-            "$ref": "#/responses/getCAInfoResponse"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           }
-        }
+        },
+        "x-codegen-request-body-name": "Create CA"
       },
       "delete": {
-        "produces": [
-          "application/json"
-        ],
         "tags": [
           "lamassu-ca"
         ],
-        "summary": "Deletes or revokes CA from Vault.",
+        "summary": "Deletes or revokes CA.",
         "operationId": "deleteCA",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ca",
+            "in": "path",
+            "description": "CA Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
         "responses": {
           "200": {
-            "$ref": "#/responses/deleteCAResponse"
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
           },
           "500": {
-            "description": ""
-          },
-          "default": {
-            "$ref": "#/responses/deleteCAResponse"
+            "description": "",
+            "content": {}
           }
         }
       }
     },
-    "/v1/health": {
+    "/cas/ops": {
       "get": {
-        "produces": [
-          "application/json"
-        ],
         "tags": [
           "lamassu-ca"
+        ],
+        "summary": "Gets detailed CA information.",
+        "operationId": "getCAInfo",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A GetCAInfoResponse returns detailed information about a CA",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GetCAInfoResponse"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "",
+            "content": {}
+          },
+          "500": {
+            "description": "",
+            "content": {}
+          }
+        }
+      }
+    },
+    "/cas/import/{ca}": {
+      "post": {
+        "tags": [
+          "lamassu-ca"
+        ],
+        "summary": "Import CA",
+        "operationId": "importCA",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ca",
+            "in": "path",
+            "description": "CA Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "description": "Import CA parameters",
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ImportCARequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        },
+        "x-codegen-request-body-name": "Import CA"
+      }
+    },
+    "/cas/issued/{caType}": {
+      "get": {
+        "tags": [
+          "lamassu-ca"
+        ],
+        "summary": "Get issued certs",
+        "operationId": "Getsissuedcerts",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "caType",
+            "in": "path",
+            "description": "CA Type: all, system or ops",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/cas/{ca}/cert/{serialNumber}": {
+      "delete": {
+        "tags": [
+          "lamassu-ca"
+        ],
+        "summary": "Delete certificate",
+        "operationId": "Deletecert",
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "ca",
+            "in": "path",
+            "description": "CA Name",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "serialNumber",
+            "in": "path",
+            "description": "Serial Number",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "OK",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "Service Status"
         ],
         "summary": "Gets service health.",
         "operationId": "health",
         "responses": {
           "200": {
-            "$ref": "#/responses/healthResponse"
+            "$ref": "#/components/schemas/HealthResponse"
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "HealthResponse": {
+        "type": "object",
+        "properties": {
+          "healthy": {
+            "type": "boolean",
+            "x-go-name": "Healthy"
+          }
+        },
+        "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
+      },
+      "CA": {
+        "required": [
+          "ca_name"
+        ],
+        "type": "object",
+        "properties": {
+          "ca_name": {
+            "type": "string",
+            "description": "The name of the CA",
+            "example": "Lamassu-Root-CA1-RSA4096",
+            "x-go-name": "Name"
+          }
+        },
+        "description": "The parameters for importing a CA",
+        "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
+      },
+      "ImportCARequest": {
+        "required": [
+          "ca_name",
+          "pembundle",
+          "ttl"
+        ],
+        "type": "object",
+        "properties": {
+          "ca_name": {
+            "type": "string",
+            "description": "The name of the CA",
+            "example": "Lamassu-Root-CA1-RSA4096",
+            "x-go-name": "CAName"
           },
-          "default": {
-            "$ref": "#/responses/healthResponse"
+          "pembundle": {
+            "type": "string",
+            "description": "Certificate file",
+            "x-go-name": "PEMBundle"
+          },
+          "ttl": {
+            "type": "integer",
+            "description": "Time to live",
+            "example": 8760,
+            "x-go-name": "TTL"
+          }
+        },
+        "description": "Import CA",
+        "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
+      },
+      "CAInfo": {
+        "required": [
+          "c",
+          "cattl",
+          "cn",
+          "key_bits",
+          "key_type",
+          "l",
+          "o",
+          "ou",
+          "serialnumber",
+          "st",
+          "status"
+        ],
+        "type": "object",
+        "properties": {
+          "c": {
+            "type": "string",
+            "description": "Country Name of the CA certificate",
+            "example": "ES",
+            "x-go-name": "C"
+          },
+          "cn": {
+            "type": "string",
+            "description": "Common name of the CA certificate",
+            "example": "Lamassu-Root-CA1-RSA4096",
+            "x-go-name": "CN"
+          },
+          "key_bits": {
+            "type": "integer",
+            "description": "Length used to create CA key",
+            "format": "int64",
+            "example": 4096,
+            "x-go-name": "KeyBits"
+          },
+          "key_type": {
+            "type": "string",
+            "description": "Algorithm used to create CA key",
+            "example": "RSA",
+            "x-go-name": "KeyType"
+          },
+          "l": {
+            "type": "string",
+            "description": "Locality of the CA certificate",
+            "example": "Arrasate",
+            "x-go-name": "L"
+          },
+          "o": {
+            "type": "string",
+            "description": "Organization of the CA certificate",
+            "example": "Lamassu IoT",
+            "x-go-name": "O"
+          },
+          "st": {
+            "type": "string",
+            "description": "State of the CA certificate",
+            "example": "Guipuzcoa",
+            "x-go-name": "ST"
+          },
+          "status": {
+            "type": "string",
+            "description": "The status of the CA",
+            "example": "issued | expired",
+            "x-go-name": "Status"
+          },
+          "serialnumber": {
+            "type": "string",
+            "description": "The serial number of the CA",
+            "example": "7e:36:13:a5:31:9f:4a:76:10:64:2e:9b:0a:11:07:b7:e6:3e:cf:94",
+            "x-go-name": "SerialNumber"
+          },
+          "keystrength": {
+            "type": "string",
+            "description": "Strength of the key used to the create CA",
+            "example": "low",
+            "x-go-name": "KeyStrength"
+          },
+          "ou": {
+            "type": "string",
+            "description": "Organization Unit of the CA certificate",
+            "example": " Lamassu IoT department 1",
+            "x-go-name": "OU"
+          },
+          "cattl": {
+            "type": "string",
+            "description": "Expiration period of the new emmited CA",
+            "example": "262800h",
+            "x-go-name": "CaTTL"
+          }
+        },
+        "description": "CAInfo represents the detailed information about a CA",
+        "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
+      },
+      "GetCAInfoResponse": {
+        "type": "object",
+        "properties": {
+          "CAInfo": {
+            "$ref": "#/components/schemas/CAInfo"
+          }
+        },
+        "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
+      },
+      "CreateCARequest": {
+        "type": "object",
+        "properties": {
+          "CAInfo": {
+            "$ref": "#/components/schemas/CAInfo"
+          }
+        },
+        "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
+      },
+      "GetCAsResponse": {
+        "type": "object",
+        "properties": {
+          "CAs": {
+            "$ref": "#/components/schemas/CA"
+          }
+        },
+        "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
+      }
+    },
+    "responses": {
+      "getCAInfoResponse": {
+        "description": "A GetCAInfoResponse returns detailed information about a CA",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GetCAInfoResponse"
+            }
+          }
+        }
+      },
+      "getCAsResponse": {
+        "description": "A GetCAsResponse returns a list of CAs",
+        "content": {
+          "application/json": {
+            "schema": {
+              "$ref": "#/components/schemas/GetCAsResponse"
+            }
           }
         }
       }
+    },
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
     }
   },
-  "definitions": {
-    "CA": {
-      "description": "CA represents a registered CA minimum information",
-      "type": "object",
-      "required": [
-        "ca_name"
-      ],
-      "properties": {
-        "ca_name": {
-          "description": "The name of the CA",
-          "type": "string",
-          "x-go-name": "Name",
-          "example": "Lamassu-Root-CA1-RSA4096"
-        }
-      },
-      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
-    },
-    "CAInfo": {
-      "description": "CAInfo represents the detailed information about a CA",
-      "type": "object",
-      "required": [
-        "cn",
-        "key_type",
-        "key_bits",
-        "o",
-        "c",
-        "st",
-        "l"
-      ],
-      "properties": {
-        "c": {
-          "description": "Country Name of the CA certificate",
-          "type": "string",
-          "x-go-name": "C",
-          "example": "ES"
-        },
-        "cn": {
-          "description": "Common name of the CA certificate",
-          "type": "string",
-          "x-go-name": "CN",
-          "example": "Lamassu-Root-CA1-RSA4096"
-        },
-        "key_bits": {
-          "description": "Length used to create CA key",
-          "type": "integer",
-          "format": "int64",
-          "x-go-name": "KeyBits",
-          "example": 4096
-        },
-        "key_type": {
-          "description": "Algorithm used to create CA key",
-          "type": "string",
-          "x-go-name": "KeyType",
-          "example": "RSA"
-        },
-        "l": {
-          "description": "Locality of the CA certificate",
-          "type": "string",
-          "x-go-name": "L",
-          "example": "Arrasate"
-        },
-        "o": {
-          "description": "Organization of the CA certificate",
-          "type": "string",
-          "x-go-name": "O",
-          "example": "Lamassu IoT"
-        },
-        "st": {
-          "description": "State of the CA certificate",
-          "type": "string",
-          "x-go-name": "ST",
-          "example": "Guipuzcoa"
-        }
-      },
-      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
-    },
-    "CAs": {
-      "description": "CAs represents a list of CAs with minimum information",
-      "type": "object",
-      "properties": {
-        "CAs": {
-          "type": "array",
-          "items": {
-            "$ref": "#/definitions/CA"
-          }
-        }
-      },
-      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/secrets"
-    },
-    "GetCAInfoResponse": {
-      "type": "object",
-      "properties": {
-        "CAInfo": {
-          "$ref": "#/definitions/CAInfo"
-        }
-      },
-      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
-    },
-    "GetCAsResponse": {
-      "type": "object",
-      "properties": {
-        "CAs": {
-          "$ref": "#/definitions/CAs"
-        }
-      },
-      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
-    },
-    "HealthResponse": {
-      "type": "object",
-      "properties": {
-        "healthy": {
-          "type": "boolean",
-          "x-go-name": "Healthy"
-        }
-      },
-      "x-go-package": "github.com/lamassuiot/lamassu-ca/pkg/api"
+  "security": [
+    {
+      "bearerAuth": []
     }
-  },
-  "responses": {
-    "getCAInfoResponse": {
-      "description": "A GetCAInfoResponse returns detailed information about a CA",
-      "schema": {
-        "$ref": "#/definitions/GetCAInfoResponse"
-      }
-    },
-    "getCAsResponse": {
-      "description": "A GetCAsResponse returns a list of CAs",
-      "schema": {
-        "$ref": "#/definitions/GetCAsResponse"
-      }
-    },
-    "healthResponse": {
-      "description": "A HealthResponse returns if the service is healthy",
-      "schema": {
-        "$ref": "#/definitions/HealthResponse"
-      }
-    }
-  }
+  ]
 }

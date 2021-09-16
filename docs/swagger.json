@@ -20,7 +20,7 @@
         "tags": [
           "lamassu-ca"
         ],
-        "summary": "Create CA swagger",
+        "summary": "Create CA",
         "operationId": "createCA",
         "security": [
           {
@@ -67,7 +67,7 @@
         "tags": [
           "lamassu-ca"
         ],
-        "summary": "Deletes or revokes CA from Vault.",
+        "summary": "Deletes or revokes CA.",
         "operationId": "deleteCA",
         "security": [
           {
@@ -108,7 +108,7 @@
         "tags": [
           "lamassu-ca"
         ],
-        "summary": "Gets detailed CA information from Vault.",
+        "summary": "Gets detailed CA information.",
         "operationId": "getCAInfo",
         "security": [
           {

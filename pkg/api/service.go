@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/x509"
 	"errors"
 	"sync"
 
@@ -10,13 +11,14 @@ import (
 
 type Service interface {
 	Health(ctx context.Context) bool
-	GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error)
+	GetCAs(ctx context.Context) (secrets.Certs, error)
 	CreateCA(ctx context.Context, caName string, ca secrets.Cert) error
 	ImportCA(ctx context.Context, caName string, ca secrets.CAImport) error
 	DeleteCA(ctx context.Context, caName string) error
-	GetIssuedCerts(ctx context.Context, caName string, caType secrets.CAType) (secrets.Certs, error)
+	GetIssuedCerts(ctx context.Context, caName string) (secrets.Certs, error)
 	GetCert(ctx context.Context, caName string, serialNumber string) (secrets.Cert, error)
 	DeleteCert(ctx context.Context, caName string, serialNumber string) error
+	SignCertificate(ctx context.Context, signingCaName string, csr x509.CertificateRequest) ([]byte, error)
 }
 
 type caService struct {
@@ -26,8 +28,7 @@ type caService struct {
 
 var (
 	//Client
-	errInvalidCA     = errors.New("invalid CA, does not exist")
-	errInvalidCAType = errors.New("invalid ca_type option")
+	errInvalidCA = errors.New("invalid CA, does not exist")
 
 	//Server
 	ErrGetCAs    = errors.New("unable to get CAs from secret engine")
@@ -45,8 +46,9 @@ func (s *caService) Health(ctx context.Context) bool {
 	return true
 }
 
-func (s *caService) GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error) {
-	CAs, err := s.secrets.GetCAs(caType)
+func (s *caService) GetCAs(ctx context.Context) (secrets.Certs, error) {
+
+	CAs, err := s.secrets.GetCAs(ctx)
 	if err != nil {
 		return secrets.Certs{}, ErrGetCAs
 	}
@@ -69,15 +71,15 @@ func (s *caService) ImportCA(ctx context.Context, caName string, caImport secret
 }
 
 func (s *caService) DeleteCA(ctx context.Context, CA string) error {
-	err := s.secrets.DeleteCA(CA)
+	err := s.secrets.DeleteCA(ctx, CA)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *caService) GetIssuedCerts(ctx context.Context, caName string, caType secrets.CAType) (secrets.Certs, error) {
-	certs, err := s.secrets.GetIssuedCerts(caName, caType)
+func (s *caService) GetIssuedCerts(ctx context.Context, caName string) (secrets.Certs, error) {
+	certs, err := s.secrets.GetIssuedCerts(ctx, caName)
 	if err != nil {
 		return secrets.Certs{}, err
 	}
@@ -97,4 +99,11 @@ func (s *caService) DeleteCert(ctx context.Context, caName string, serialNumber 
 		return err
 	}
 	return nil
+}
+func (s *caService) SignCertificate(ctx context.Context, caName string, csr x509.CertificateRequest) ([]byte, error) {
+	cert, err := s.secrets.SignCertificate(caName, &csr)
+	if err != nil {
+		return nil, err
+	}
+	return cert, nil
 }

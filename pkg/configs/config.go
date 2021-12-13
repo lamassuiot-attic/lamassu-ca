@@ -3,32 +3,23 @@ package configs
 import "github.com/kelseyhightower/envconfig"
 
 type Config struct {
-	Port string
+	Port     string `required:"true" split_words:"true"`
+	Protocol string `required:"true" split_words:"true"`
 
-	EnrollerUIHost     string
-	EnrollerUIPort     string
-	EnrollerUIProtocol string
+	OcspUrl string `required:"true" split_words:"true"`
 
-	OcspUrl string
+	OidcWellKnownUrl string `required:"true" split_words:"true"`
+	OidcCA           string `split_words:"true"`
 
-	ConsulProtocol string
-	ConsulHost     string
-	ConsulPort     string
-	ConsulCA       string
+	VaultAddress  string `required:"true" split_words:"true"`
+	VaultRoleID   string `required:"true" split_words:"true"`
+	VaultSecretID string `required:"true" split_words:"true"`
+	VaultCA       string `split_words:"true"`
 
-	KeycloakHostname string
-	KeycloakPort     string
-	KeycloakProtocol string
-	KeycloakRealm    string
-	KeycloakCA       string
+	VaultPkiCaPath string `required:"true" split_words:"true"`
 
-	VaultAddress  string
-	VaultRoleID   string
-	VaultSecretID string
-	VaultCA       string
-
-	CertFile string
-	KeyFile  string
+	CertFile string `split_words:"true"`
+	KeyFile  string `split_words:"true"`
 }
 
 func NewConfig(prefix string) (Config, error) {

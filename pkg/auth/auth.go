@@ -1,82 +1,60 @@
 package auth
 
 import (
+	"context"
+	"crypto/rsa"
 	"crypto/tls"
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
-
-	"github.com/lamassuiot/lamassu-ca/pkg/utils"
+	"strings"
 
 	stdjwt "github.com/dgrijalva/jwt-go"
+	"github.com/lamassuiot/lamassu-ca/pkg/utils"
+	"github.com/lestrrat-go/jwx/jwk"
 )
 
 type Auth interface {
 	Kf(token *stdjwt.Token) (interface{}, error)
-	KeycloakClaimsFactory() stdjwt.Claims
+	ClaimsFactory() stdjwt.Claims
 }
 
 type auth struct {
-	keycloakHost     string
-	keycloakPort     string
-	keycloakProtocol string
-	keycloakRealm    string
-	keycloakCA       string
+	OidcWellKnownUrl string
+	OidcCA           string
 }
 
-type Roles struct {
-	RoleNames []string `json:"roles"`
+type OidcWellKnown struct {
+	Issuer  string `json:"issuer"`
+	JwksUri string `json:"jwks_uri"`
 }
-
-type Account struct {
-	roles []Roles `json:"account"`
-}
-
-type KeycloakClaims struct {
-	Type                      string   `json:"typ,omitempty"`
-	AuthorizedParty           string   `json:"azp,omitempty"`
-	Nonce                     string   `json:"nonce,omitempty"`
-	AuthTime                  int64    `json:"auth_time,omitempty"`
-	SessionState              string   `json:"session_state,omitempty"`
-	AuthContextClassReference string   `json:"acr,omitempty"`
-	AllowedOrigins            []string `json:"allowed-origins,omitempty"`
-	RealmAccess               Roles    `json:"realm_access,omitempty"`
-	ResourceAccess            Account  `json:"resource_access,omitempty"`
-	Scope                     string   `json:"scope,omitempty"`
-	EmailVerified             bool     `json:"email_verified,omitempty"`
-	FullName                  string   `json:"name,omitempty"`
-	PreferredUsername         string   `json:"preferred_username,omitempty"`
-	GivenName                 string   `json:"given_name,omitempty"`
-	FamilyName                string   `json:"family_name,omitempty"`
-	Email                     string   `json:"email,omitempty"`
+type Claims struct {
 	stdjwt.StandardClaims
 }
 
 var (
+	errBadWellKnown        = errors.New("unable to fetch OIDC well known information")
+	errBadWellKnownContent = errors.New("unable to parse OIDC well known information")
+	errBadJwksUri          = errors.New("unable to fetch OIDC JWKS Uri")
+	errBadJwksUriContent   = errors.New("unable to parse OIDC JWKS Uri")
+	errBadJwksSet          = errors.New("unable to parse OIDC JWKS into JWKS set")
 	errBadKey              = errors.New("unexpected JWT key signing method")
-	errBadPublicKeyRequest = errors.New("unable to obtain public key from Keycloak")
-	errBadPublicKeyParse   = errors.New("unable to parse Keycloak public key")
-	errKeycloakCA          = errors.New("error reading Keycloak CA")
+	errBadPublicKeyRaw     = errors.New("unable to parse JWKS raw public key")
+	errBadPublicKeyBuild   = errors.New("unable to build JWKS public key")
+	errNoPublicKey         = errors.New("unable to obtain a valid public key")
+	errOidcCA              = errors.New("error reading OIDC CA")
 )
 
-type KeycloakPublic struct {
-	Realm           string `json:"realm"`
-	PublicKey       string `json:"public_key"`
-	TokenService    string `json:"token-service"`
-	AccountService  string `json:"account-service"`
-	TokensNotBefore int    `json:"tokens-not-before"`
+func NewAuth(oidcWellKnownUrl string, oidcCA string) Auth {
+	return &auth{
+		OidcWellKnownUrl: oidcWellKnownUrl,
+		OidcCA:           oidcCA,
+	}
 }
 
-func NewAuth(keycloakHost string, keycloakPort string, keycloakProtocol string, keycloakRealm string, keycloakCA string) Auth {
-	return &auth{keycloakHost: keycloakHost,
-		keycloakPort:     keycloakPort,
-		keycloakProtocol: keycloakProtocol,
-		keycloakRealm:    keycloakRealm,
-		keycloakCA:       keycloakCA}
-}
-
-func (a *auth) KeycloakClaimsFactory() stdjwt.Claims {
-	return &KeycloakClaims{}
+func (a *auth) ClaimsFactory() stdjwt.Claims {
+	return &Claims{}
 }
 
 func (a *auth) Kf(token *stdjwt.Token) (interface{}, error) {
@@ -85,34 +63,63 @@ func (a *auth) Kf(token *stdjwt.Token) (interface{}, error) {
 		return nil, errBadKey
 	}
 
-	keycloakURL := a.keycloakProtocol + "://" + a.keycloakHost + ":" + a.keycloakPort + "/auth/realms/" + a.keycloakRealm
+	client := &http.Client{}
 
-	caCertPool, err := utils.CreateCAPool(a.keycloakCA)
-	if err != nil {
-		return nil, errKeycloakCA
-	}
+	if strings.HasPrefix(strings.ToLower(a.OidcWellKnownUrl), "https") {
+		caCertPool, err := utils.CreateCAPool(a.OidcCA)
+		if err != nil {
+			return nil, errOidcCA
+		}
 
-	client := &http.Client{
-		Transport: &http.Transport{
-			TLSClientConfig: &tls.Config{
-				RootCAs: caCertPool,
+		client = &http.Client{
+			Transport: &http.Transport{
+				TLSClientConfig: &tls.Config{
+					RootCAs: caCertPool,
+				},
 			},
-		},
+		}
 	}
 
-	r, err := client.Get(keycloakURL)
+	r, err := client.Get(a.OidcWellKnownUrl)
 	if err != nil {
-		return nil, errBadPublicKeyRequest
+		return nil, errBadWellKnown
 	}
 
-	var keyPublic KeycloakPublic
-	if err := json.NewDecoder(r.Body).Decode(&keyPublic); err != nil {
-		return nil, errBadPublicKeyRequest
+	var oidcWellKnown OidcWellKnown
+	if err := json.NewDecoder(r.Body).Decode(&oidcWellKnown); err != nil {
+		return nil, errBadWellKnownContent
 	}
 
-	pubKey, err := utils.ParseKeycloakPublicKey([]byte(utils.PublicKeyHeader + "\n" + keyPublic.PublicKey + "\n" + utils.PublicKeyFooter))
+	r, err = client.Get(oidcWellKnown.JwksUri)
 	if err != nil {
-		return nil, errBadPublicKeyParse
+		return nil, errBadJwksUri
 	}
-	return pubKey, nil
+
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		return nil, errBadJwksUriContent
+	}
+	set, err := jwk.Parse(bodyBytes)
+
+	if err != nil {
+		return nil, errBadJwksSet
+	}
+
+	for it := set.Iterate(context.Background()); it.Next(context.Background()); {
+		pair := it.Pair()
+		key := pair.Value.(jwk.Key)
+
+		var rawkey interface{} // This is the raw key, like *rsa.PrivateKey or *ecdsa.PrivateKey
+		if err := key.Raw(&rawkey); err != nil {
+			return nil, errBadPublicKeyRaw
+		}
+
+		// We know this is an RSA Key
+		rsaPubKey, ok := rawkey.(*rsa.PublicKey)
+		if !ok {
+			return nil, errBadPublicKeyBuild
+		}
+		return rsaPubKey, nil
+	}
+	return nil, errNoPublicKey
 }

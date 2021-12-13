@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"crypto/x509"
 	"time"
 
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
@@ -36,17 +37,16 @@ func (mw loggingMiddleware) Health(ctx context.Context) (healthy bool) {
 	return mw.next.Health(ctx)
 }
 
-func (mw loggingMiddleware) GetCAs(ctx context.Context, caType secrets.CAType) (CAs secrets.Certs, err error) {
+func (mw loggingMiddleware) GetCAs(ctx context.Context) (CAs secrets.Certs, err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "GetCAs",
-			"caType", caType,
 			"number_cas", len(CAs.Certs),
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.GetCAs(ctx, caType)
+	return mw.next.GetCAs(ctx)
 }
 
 func (mw loggingMiddleware) CreateCA(ctx context.Context, caName string, ca secrets.Cert) (err error) {
@@ -85,18 +85,17 @@ func (mw loggingMiddleware) DeleteCA(ctx context.Context, CA string) (err error)
 	return mw.next.DeleteCA(ctx, CA)
 }
 
-func (mw loggingMiddleware) GetIssuedCerts(ctx context.Context, CA string, caType secrets.CAType) (certs secrets.Certs, err error) {
+func (mw loggingMiddleware) GetIssuedCerts(ctx context.Context, CA string) (certs secrets.Certs, err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "GetIssuedCerts",
 			"ca_name", CA,
-			"ca_type", caType,
 			"number_issued_certs", len(certs.Certs),
 			"took", time.Since(begin),
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.GetIssuedCerts(ctx, CA, caType)
+	return mw.next.GetIssuedCerts(ctx, CA)
 }
 func (mw loggingMiddleware) GetCert(ctx context.Context, caName string, serialNumber string) (cert secrets.Cert, err error) {
 	defer func(begin time.Time) {
@@ -123,4 +122,18 @@ func (mw loggingMiddleware) DeleteCert(ctx context.Context, caName string, seria
 		)
 	}(time.Now())
 	return mw.next.DeleteCert(ctx, caName, serialNumber)
+}
+
+func (mw loggingMiddleware) SignCertificate(ctx context.Context, caName string, csr x509.CertificateRequest) (crt []byte, err error) {
+	defer func(begin time.Time) {
+		mw.logger.Log(
+			"method", "SignCertificate",
+			"ca_name", caName,
+			"csr", csr,
+			"crt", crt,
+			"took", time.Since(begin),
+			"err", err,
+		)
+	}(time.Now())
+	return mw.next.SignCertificate(ctx, caName, csr)
 }

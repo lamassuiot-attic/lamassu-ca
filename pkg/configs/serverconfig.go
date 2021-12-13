@@ -7,28 +7,19 @@ import (
 
 // ServerConfig  contains the EST server configuration.
 type ServerConfig struct {
-	CA                  *CAConfig     `json:"ca,omitempty"`
-	TLS                 *tlsConfig    `json:"tls,omitempty"`
-	AllowedHosts        []string      `json:"allowed_hosts,omitempty"`
-	HealthCheckPassword string        `json:"healthcheck_password"`
-	RateLimit           int           `json:"rate_limit"`
-	Timeout             int           `json:"timeout"`
-	Logfile             string        `json:"log_file"`
-	Consul              *consulConfig `json:"consul"`
-	Proxy               *proxyConfig  `json:"proxy"`
-}
-
-// consulConfig  contains the consul configuration.
-type consulConfig struct {
-	ConsulProtocol string
-	ConsulHost     string
-	ConsulPort     string
-	ConsulCA       string
+	CA                  *CAConfig    `json:"ca,omitempty"`
+	TLS                 *tlsConfig   `json:"tls,omitempty"`
+	AllowedHosts        []string     `json:"allowed_hosts,omitempty"`
+	HealthCheckPassword string       `json:"healthcheck_password"`
+	RateLimit           int          `json:"rate_limit"`
+	Timeout             int          `json:"timeout"`
+	Logfile             string       `json:"log_file"`
+	Proxy               *proxyConfig `json:"proxy"`
 }
 
 // proxyConfig contains proxy configuration.
 type proxyConfig struct {
-	roxyHost  string
+	// roxyHost  string
 	ProxyPort string
 	ProxyCA   string
 }

@@ -11,83 +11,48 @@ Lamassu
 ## Lamassu CA
 Lamassu CA is a [Vault](https://www.vaultproject.io/) API wrapper for managining the lifecycle of CAs.
 
-## Installation
-To compile Lamassu CAs wrapper follow the next steps:
-1. Clone the repository and get into the application directory: `go get github.com/lamassuiot/lamassu-ca && cd src/github.com/lamassuiot/lamassu-ca/cmd`
-2. Run the compilation script: `./release.sh`
+### Environment variables
+The following environment variables shall be provided.
+```
+PORT=8087
+PROTOCOL=https
 
-The binaries will be compiled in the `/build` directory.
+OCSP_URL=http://ocsp.dev.lamassu.io
 
-## Usage
-The Lamassu CA wrapper should be configured with access credentials in Vault and some environment variables.
+OIDC_WELL_KNOWN_URL=https://auth.dev.lamassu.io/auth/realms/lamassu/.well-known/openid-configuration
+OIDC_CA=tls-certificates/auth/tls.crt
+
+VAULT_ADDRESS=https://vault.dev.lamassu.io
+VAULT_ROLE_ID=<vault_role_id>
+VAULT_SECRET_ID=<vault_secret_id>
+VAULT_CA=tls-certificates/vault/tls.crt
+VAULT_PKI_CA_PATH=pki/lamassu/dev/
+
+CERT_FILE=tls-certificates/lamassu-ca/tls.crt
+KEY_FILE=tls-certificates/lamassu-ca/tls.key
+
+JAEGER_SERVICE_NAME=ca
+JAEGER_AGENT_HOST=localhost
+JAEGER_AGENT_PORT=6831
+JAEGER_SAMPLER_TYPE=const
+JAEGER_SAMPLER_PARAM=1
+JAEGER_REPORTER_LOG_SPANS=true
+```
 
 ### Vault credentials
 Vault authentication mode should be configured as AppRole. Once configured, the RoleID and SecretID should be provided to the wrapper as environment variables.
 ```
 # Get AppRole RoleID
 curl --header "X-Vault-Token: ${VAULT_TOKEN}" ${VAULT_ADDR}/v1/auth/approle/role/<role_name>/role-id
+
 # Generate new Secret ID
 curl --header "X-Vault-Token: ${VAULT_TOKEN}" --request POST ${VAULT_ADDR}/v1/auth/approle/role/<role_name>/secret-id
 ```
-### Environment variables
-The following environment variables should be provided.
-```
-CA_PORT=8087 //Wrapper API Port.
-CA_VAULTADDRESS=https://vault:8200 //Vault address.
-CA_VAULTROLEID=<CA_VAULTROLEID> //Vault AppRole RoleID.
-CA_VAULTSECRETID=<CA_VAULTSECRETID> //Vault AppRole SecretID.
-CA_VAULTCA=vault.crt //Vault server certificate CA to trust it.
-CA_CERTFILE=ca.crt //Wrapper API certificate.
-CA_KEYFILE=ca.key //Wrapper API key.
-CA_KEYCLOAKHOSTNAME=keycloak //Keycloak server hostname.
-CA_KEYCLOAKPORT=8443 //Keycloak server port.
-CA_KEYCLOAKREALM=<KEYCLOAK_REALM> //Keycloak realm configured.
-CA_KEYCLOAKCA=<KEYCLOAK_CA> //Keycloak server certificate CA to trust it.
-CA_KEYCLOAKPROTOCOL=https //Keycloak server protocol.
-CA_ENROLLERUIPROTOCOL=https //UI protocol (for CORS 'Access-Control-Allow-Origin' header).
-CA_ENROLLERUIHOST=enrollerui //UI host (for CORS 'Access-Control-Allow-Origin' header).
-CA_CONSULPROTOCOL=https //Consul server protocol.
-CA_CONSULHOST=consul //Consul server host.
-CA_CONSULCA=consul.crt //Consul server certificate CA to trust it.
-CA_CONSULPORT=8501 //Consul server port.
-JAEGER_SERVICE_NAME=enroller-ca //Jaeger tracing service name.
-JAEGER_AGENT_HOST=jaeger //Jaeger agent host.
-JAEGER_AGENT_PORT=6831 //Jaeger agent port.
-```
-The prefix `(CA_)` used to declare the environment variables can be changed in `cmd/main.go`:
-```
-cfg, err := configs.NewConfig("ca")
-```
+
 ## Docker
 The recommended way to run [Lamassu](https://www.lamassu.io) is following the steps explained in [lamassu-compose](https://github.com/lamassuiot/lamassu-compose) repository. However, each component can be run separately in Docker following the next steps.
 ```
 docker image build -t lamassuiot/lamassu-ca:latest .
-docker run -p 8087:8087 
-  --env CA_PORT=8087
-  --env CA_VAULTADDRESS=https://vault:8200
-  --env CA_VAULTROLEID=<CA_VAULTROLEID>
-  --env CA_VAULTSECRETID=<CA_VAULTSECRETID>
-  --env CA_VAULTCA=vault.crt
-  --env CA_CERTFILE=ca.crt
-  --env CA_KEYFILE=ca.key
-  --env CA_KEYCLOAKHOSTNAME=keycloak
-  --env CA_KEYCLOAKPORT=8443
-  --env CA_KEYCLOAKREALM=<KEYCLOAK_REALM>
-  --env CA_KEYCLOAKCA=<KEYCLOAK_CA>
-  --env CA_KEYCLOAKPROTOCOL=https
-  --env CA_ENROLLERUIPROTOCOL=https
-  --env CA_ENROLLERUIHOST=enrollerui
-  --env CA_CONSULPROTOCOL=https
-  --env CA_CONSULHOST=consul
-  --env CA_CONSULCA=consul.crt
-  --env CA_CONSULPORT=8501
-  --env JAEGER_SERVICE_NAME=enroller-ca
-  --env JAEGER_AGENT_HOST=jaeger
-  --env JAEGER_AGENT_PORT=6831
-  lamassuiot/lamassu-ca:latest
-```
-## Kubernetes
-[Lamassu](https://www.lamassu.io) can be run in Kubernetes deploying the objects defined in `k8s/` directory. `provision-k8s.sh` script provides some useful guidelines and commands to deploy the objects in a local [Minikube](https://github.com/kubernetes/minikube) Kubernetes cluster.
-
+``` 
 ## Documentation
 [Swagger](https://swagger.io/) - [OpenAPI](https://www.openapis.org/) 2.0 documentation is available in `https://ca:8087/v1/docs`. Swagger 2.0 specification JSON is created from source code annotations using [go-swagger](https://github.com/go-swagger/go-swagger) package.   

@@ -31,7 +31,7 @@ var (
 	errSerial = errors.New("Serial Number not provided")
 )
 
-var claims = &auth.KeycloakClaims{}
+var claims = &auth.Claims{}
 
 func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdopentracing.Tracer) http.Handler {
 	r := mux.NewRouter()
@@ -49,71 +49,57 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "Health", logger)))...,
 	))
 
-	r.Methods("GET").Path("/v1/cas").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetAllCAsEndpoint),
+	r.Methods("GET").Path("/v1/ca").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.GetCAsEndpoint),
 		decodeGetCAsRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,
 	))
 
-	r.Methods("GET").Path("/v1/cas/ops").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetOpsCAsEndpoint),
-		decodeGetCAsRequest,
-		encodeResponse,
-		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,
-	))
-
-	r.Methods("GET").Path("/v1/cas/system").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetSystemCAsEndpoint),
-		decodeGetCAsRequest,
-		encodeResponse,
-		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCAs", logger)))...,
-	))
-
-	r.Methods("POST").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.CreateCAEndpoint),
+	r.Methods("POST").Path("/v1/ca/{ca}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.CreateCAEndpoint),
 		decodeCreateCARequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "CreateCA", logger)))...,
 	))
 
-	r.Methods("POST").Path("/v1/cas/import/{ca}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.ImportCAEndpoint),
+	r.Methods("POST").Path("/v1/ca/import/{ca}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.ImportCAEndpoint),
 		decodeImportCARequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "ImportCA", logger)))...,
 	))
 
-	r.Methods("DELETE").Path("/v1/cas/{ca}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.DeleteCAEndpoint),
+	r.Methods("DELETE").Path("/v1/ca/{ca}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.DeleteCAEndpoint),
 		decodeDeleteCARequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "DeleteCA", logger)))...,
 	))
 
-	//ALL certs from ALL CAs
-	r.Methods("GET").Path("/v1/cas/issued/{caType}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetIssuedCertsEndpoint),
+	r.Methods("GET").Path("/v1/ca/issued").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.GetIssuedCertsEndpoint),
 		decodeGetAllIssuedCertsRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
 	))
-	r.Methods("GET").Path("/v1/cas/{ca}/issued").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetIssuedCertsEndpoint),
+
+	r.Methods("GET").Path("/v1/ca/{ca}/issued").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.GetIssuedCertsEndpoint),
 		decodeGetIssuedCertsRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
 	))
 
-	r.Methods("GET").Path("/v1/cas/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.GetCertEndpoint),
+	r.Methods("GET").Path("/v1/ca/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.GetCertEndpoint),
 		decodeGetCertRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCert", logger)))...,
 	))
 
-	r.Methods("DELETE").Path("/v1/cas/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.KeycloakClaimsFactory)(e.DeleteCertEndpoint),
+	r.Methods("DELETE").Path("/v1/ca/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
+		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.DeleteCertEndpoint),
 		decodeDeleteCertRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "DeleteCert", logger)))...,
@@ -138,26 +124,12 @@ func decodeGetIssuedCertsRequest(ctx context.Context, r *http.Request) (request 
 	if !ok {
 		return nil, errCAName
 	}
-	return caRequest{CA: CA, caType: secrets.AllCAs}, nil
+	return CaRequest{CA: CA}, nil
 }
 
 func decodeGetAllIssuedCertsRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
-	vars := mux.Vars(r)
-	caType, ok := vars["caType"]
-	if !ok {
-		return nil, errCAName
-	}
-
-	if caType == "all" {
-		return caRequest{CA: "", caType: secrets.AllCAs}, nil
-	}
-	if caType == "system" {
-		return caRequest{CA: "", caType: secrets.SystemCAs}, nil
-	}
-	if caType == "ops" {
-		return caRequest{CA: "", caType: secrets.OperationsCAs}, nil
-	}
-	return caRequest{}, errInvalidCAType
+	var req getCAsRequest
+	return req, nil
 }
 
 func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -172,7 +144,7 @@ func decodeCreateCARequest(ctx context.Context, r *http.Request) (request interf
 	if !ok {
 		return nil, errCAName
 	}
-	return createCARequest{CAName: caName, CA: caRequestInfo}, nil
+	return CreateCARequest{CAName: caName, CA: caRequestInfo}, nil
 }
 
 func decodeImportCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -187,7 +159,7 @@ func decodeImportCARequest(ctx context.Context, r *http.Request) (request interf
 	if !ok {
 		return nil, errCAName
 	}
-	return importCARequest{CAName: caName, CAImport: importCaRequest}, nil
+	return ImportCARequest{CAName: caName, CAImport: importCaRequest}, nil
 }
 
 func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -196,7 +168,7 @@ func decodeDeleteCARequest(ctx context.Context, r *http.Request) (request interf
 	if !ok {
 		return nil, errCAName
 	}
-	return deleteCARequest{CA: CA}, nil
+	return DeleteCARequest{CA: CA}, nil
 }
 
 func decodeGetCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
@@ -209,7 +181,7 @@ func decodeGetCertRequest(ctx context.Context, r *http.Request) (request interfa
 	if !ok {
 		return nil, errSerial
 	}
-	return getCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
+	return GetCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
 }
 func decodeDeleteCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
 	vars := mux.Vars(r)
@@ -221,7 +193,7 @@ func decodeDeleteCertRequest(ctx context.Context, r *http.Request) (request inte
 	if !ok {
 		return nil, errSerial
 	}
-	return deleteCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
+	return DeleteCertRequest{CaName: CA, SerialNumber: serialNumber}, nil
 }
 
 func encodeResponse(ctx context.Context, w http.ResponseWriter, response interface{}) error {

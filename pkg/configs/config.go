@@ -3,10 +3,16 @@ package configs
 import "github.com/kelseyhightower/envconfig"
 
 type Config struct {
-	Port     string `required:"true" split_words:"true"`
-	Protocol string `required:"true" split_words:"true"`
+	Port string `required:"true" split_words:"true"`
 
 	OcspUrl string `required:"true" split_words:"true"`
+
+	Protocol string `required:"true" split_words:"true"`
+	CertFile string `split_words:"true"`
+	KeyFile  string `split_words:"true"`
+
+	MutualTLSEnabled  bool   `split_words:"true"`
+	MutualTLSClientCA string `split_words:"true"`
 
 	OidcWellKnownUrl string `required:"true" split_words:"true"`
 	OidcCA           string `split_words:"true"`
@@ -18,8 +24,8 @@ type Config struct {
 
 	VaultPkiCaPath string `required:"true" split_words:"true"`
 
-	CertFile string `split_words:"true"`
-	KeyFile  string `split_words:"true"`
+	AmqpIP   string `required:"true" split_words:"true"`
+	AmqpPort string `required:"true" split_words:"true"`
 }
 
 func NewConfig(prefix string) (Config, error) {

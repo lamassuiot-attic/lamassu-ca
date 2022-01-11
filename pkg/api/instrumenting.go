@@ -27,6 +27,16 @@ func NewInstrumentingMiddleware(counter metrics.Counter, latency metrics.Histogr
 	}
 }
 
+func (mw *instrumentingMiddleware) GetSecretProviderName(ctx context.Context) (providerName string) {
+	defer func(begin time.Time) {
+		lvs := []string{"method", "GetSecretProviderName", "error", "false"}
+		mw.requestCount.With(lvs...).Add(1)
+		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
+	}(time.Now())
+
+	return mw.next.GetSecretProviderName(ctx)
+}
+
 func (mw *instrumentingMiddleware) Health(ctx context.Context) bool {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "Health", "error", "false"}
@@ -106,7 +116,7 @@ func (mw *instrumentingMiddleware) DeleteCert(ctx context.Context, caName string
 	return mw.next.DeleteCert(ctx, caName, serialNumber)
 }
 
-func (mw *instrumentingMiddleware) SignCertificate(ctx context.Context, caName string, csr x509.CertificateRequest) (crt []byte, err error) {
+func (mw *instrumentingMiddleware) SignCertificate(ctx context.Context, caName string, csr x509.CertificateRequest) (crt string, err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "SignCertificate", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)

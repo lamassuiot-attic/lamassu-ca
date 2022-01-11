@@ -42,14 +42,12 @@ func NewVaultSecrets(address string, pkiPath string, roleID string, secretID str
 	conf.ConfigureTLS(tlsConf)
 	client, err := api.NewClient(conf)
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not create Vault API client")
-		return nil, err
+		return nil, errors.New("Could not create Vault API client: " + err.Error())
 	}
 
 	err = Login(client, roleID, secretID)
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not login into Vault")
-		return nil, err
+		return nil, errors.New("Could not login into Vault: " + err.Error())
 	}
 	return &vaultSecrets{
 		client:   client,
@@ -75,7 +73,11 @@ func Login(client *api.Client, roleID string, secretID string) error {
 	return nil
 }
 
-func (vs *vaultSecrets) SignCertificate(caName string, csr *x509.CertificateRequest) ([]byte, error) {
+func (vs *vaultSecrets) GetSecretProviderName(ctx context.Context) string {
+	return "Hashicorp_Vault"
+}
+
+func (vs *vaultSecrets) SignCertificate(caName string, csr *x509.CertificateRequest) (string, error) {
 	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
 	options := map[string]interface{}{
 		"csr":         string(csrBytes),
@@ -83,16 +85,16 @@ func (vs *vaultSecrets) SignCertificate(caName string, csr *x509.CertificateRequ
 	}
 	data, err := vs.client.Logical().Write(vs.pkiPath+caName+"/sign-verbatim/enroller", options)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	certData := data.Data["certificate"]
 	certPEMBlock, _ := pem.Decode([]byte(certData.(string)))
 	if certPEMBlock == nil || certPEMBlock.Type != "CERTIFICATE" {
 		err = errors.New("failed to decode PEM block containing certificate")
-		return nil, err
+		return "", err
 	}
 
-	return certPEMBlock.Bytes, nil
+	return base64.StdEncoding.EncodeToString([]byte(certData.(string))), nil
 }
 
 func (vs *vaultSecrets) GetCA(ctx context.Context, caName string) (secrets.Cert, error) {

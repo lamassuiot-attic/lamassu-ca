@@ -2,6 +2,9 @@ package api
 
 import (
 	"context"
+	"crypto/x509"
+	"encoding/base64"
+	"encoding/pem"
 
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
@@ -18,6 +21,7 @@ type Endpoints struct {
 	DeleteCAEndpoint       endpoint.Endpoint
 	GetIssuedCertsEndpoint endpoint.Endpoint
 	GetCertEndpoint        endpoint.Endpoint
+	SignCertEndpoint       endpoint.Endpoint
 	DeleteCertEndpoint     endpoint.Endpoint
 }
 
@@ -63,11 +67,18 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 		getCertEndpoint = opentracing.TraceServer(otTracer, "GetCert")(getCertEndpoint)
 	}
 
+	var signCertificateEndpoint endpoint.Endpoint
+	{
+		signCertificateEndpoint = MakeSignCertEndpoint(s)
+		signCertificateEndpoint = opentracing.TraceServer(otTracer, "SignCertificate")(signCertificateEndpoint)
+	}
+
 	var deleteCertEndpoint endpoint.Endpoint
 	{
 		deleteCertEndpoint = MakeDeleteCertEndpoint(s)
 		deleteCertEndpoint = opentracing.TraceServer(otTracer, "DeleteCert")(deleteCertEndpoint)
 	}
+
 	return Endpoints{
 		HealthEndpoint:         healthEndpoint,
 		GetCAsEndpoint:         getCAsEndpoint,
@@ -77,6 +88,7 @@ func MakeServerEndpoints(s Service, otTracer stdopentracing.Tracer) Endpoints {
 		GetIssuedCertsEndpoint: getIssuedCertsEndpoint,
 		GetCertEndpoint:        getCertEndpoint,
 		DeleteCertEndpoint:     deleteCertEndpoint,
+		SignCertEndpoint:       signCertificateEndpoint,
 	}
 }
 
@@ -134,6 +146,20 @@ func MakeCertEndpoint(s Service) endpoint.Endpoint {
 		return cert, err
 	}
 }
+
+func MakeSignCertEndpoint(s Service) endpoint.Endpoint {
+	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
+		req := request.(SignCertificateRquest)
+
+		data, _ := base64.StdEncoding.DecodeString(req.base64Csr)
+		block, _ := pem.Decode([]byte(data))
+		csr, _ := x509.ParseCertificateRequest(block.Bytes)
+
+		crt, err := s.SignCertificate(ctx, req.CAName, *csr)
+		return SignCertificateResponse{Crt: crt}, err
+	}
+}
+
 func MakeDeleteCertEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(DeleteCertRequest)
@@ -184,8 +210,17 @@ type ImportCARequest struct {
 	CAImport secrets.CAImport
 }
 
+type SignCertificateRquest struct {
+	CAName    string
+	base64Csr string
+}
+
 type errorResponse struct {
 	Err error `json:"-"`
+}
+
+type SignCertificateResponse struct {
+	Crt string `json:"crt"`
 }
 
 func (r errorResponse) error() error { return r.Err }

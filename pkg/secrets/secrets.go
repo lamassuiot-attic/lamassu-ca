@@ -102,6 +102,8 @@ type Certs struct {
 	Certs []Cert `json:"certs"`
 }
 type Secrets interface {
+	GetSecretProviderName(ctx context.Context) string
+
 	GetCAs(ctx context.Context) (Certs, error)
 	GetCA(ctx context.Context, caName string) (Cert, error)
 	CreateCA(caName string, ca Cert) error
@@ -111,5 +113,5 @@ type Secrets interface {
 	GetIssuedCerts(ctx context.Context, caName string) (Certs, error)
 	GetCert(caName string, serialNumber string) (Cert, error)
 	DeleteCert(caName string, serialNumber string) error
-	SignCertificate(caName string, csr *x509.CertificateRequest) ([]byte, error)
+	SignCertificate(caName string, csr *x509.CertificateRequest) (string, error)
 }

@@ -6,13 +6,11 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/lamassuiot/lamassu-ca/pkg/auth"
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/tracing/opentracing"
 
-	stdjwt "github.com/dgrijalva/jwt-go"
 	"github.com/go-kit/kit/auth/jwt"
 	"github.com/go-kit/kit/transport"
 	httptransport "github.com/go-kit/kit/transport/http"
@@ -31,9 +29,7 @@ var (
 	errSerial = errors.New("Serial Number not provided")
 )
 
-var claims = &auth.Claims{}
-
-func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdopentracing.Tracer) http.Handler {
+func MakeHTTPHandler(s Service, logger log.Logger, otTracer stdopentracing.Tracer) http.Handler {
 	r := mux.NewRouter()
 	e := MakeServerEndpoints(s, otTracer)
 	options := []httptransport.ServerOption{
@@ -51,7 +47,6 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 
 	// Get all CAs
 	r.Methods("GET").Path("/v1/ca").Handler(httptransport.NewServer(
-		// jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.GetCAsEndpoint),
 		e.GetCAsEndpoint,
 		decodeGetCAsRequest,
 		encodeResponse,
@@ -60,7 +55,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 
 	// Create new CA using Form
 	r.Methods("POST").Path("/v1/ca/{ca}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.CreateCAEndpoint),
+		e.CreateCAEndpoint,
 		decodeCreateCARequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "CreateCA", logger)))...,
@@ -68,7 +63,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 
 	// Import existing crt and key
 	r.Methods("POST").Path("/v1/ca/import/{ca}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.ImportCAEndpoint),
+		e.ImportCAEndpoint,
 		decodeImportCARequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "ImportCA", logger)))...,
@@ -76,7 +71,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 
 	// Revoke CA
 	r.Methods("DELETE").Path("/v1/ca/{ca}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.DeleteCAEndpoint),
+		e.DeleteCAEndpoint,
 		decodeDeleteCARequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "DeleteCA", logger)))...,
@@ -84,7 +79,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 
 	// Get Issued certificates from all CAs
 	r.Methods("GET").Path("/v1/ca/issued").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.GetIssuedCertsEndpoint),
+		e.GetIssuedCertsEndpoint,
 		decodeGetAllIssuedCertsRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
@@ -92,7 +87,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 
 	// Get Issued certificates by {ca}
 	r.Methods("GET").Path("/v1/ca/{ca}/issued").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.GetIssuedCertsEndpoint),
+		e.GetIssuedCertsEndpoint,
 		decodeGetIssuedCertsRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetIssuedCerts", logger)))...,
@@ -100,7 +95,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 
 	// Get certificate by {ca} and {serialNumber}
 	r.Methods("GET").Path("/v1/ca/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.GetCertEndpoint),
+		e.GetCertEndpoint,
 		decodeGetCertRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "GetCert", logger)))...,
@@ -108,7 +103,6 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 
 	// Sign CSR by {ca}
 	r.Methods("POST").Path("/v1/ca/{ca}/sign").Handler(httptransport.NewServer(
-		//jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.SignCertEndpoint),
 		e.SignCertEndpoint,
 		decodeSignCertificateRequest,
 		encodeResponse,
@@ -117,7 +111,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, auth auth.Auth, otTracer stdo
 
 	// Revoke certificate issued by {ca} and {serialNumber}
 	r.Methods("DELETE").Path("/v1/ca/{ca}/cert/{serialNumber}").Handler(httptransport.NewServer(
-		jwt.NewParser(auth.Kf, stdjwt.SigningMethodRS256, auth.ClaimsFactory)(e.DeleteCertEndpoint),
+		e.DeleteCertEndpoint,
 		decodeDeleteCertRequest,
 		encodeResponse,
 		append(options, httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "DeleteCert", logger)))...,

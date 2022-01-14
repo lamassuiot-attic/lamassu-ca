@@ -106,12 +106,12 @@ type Secrets interface {
 
 	GetCAs(ctx context.Context) (Certs, error)
 	GetCA(ctx context.Context, caName string) (Cert, error)
-	CreateCA(caName string, ca Cert) error
-	ImportCA(caName string, caImport CAImport) error
+	CreateCA(ctx context.Context, caName string, ca Cert) error
+	ImportCA(ctx context.Context, caName string, caImport CAImport) error
 	DeleteCA(ctx context.Context, caName string) error
 
 	GetIssuedCerts(ctx context.Context, caName string) (Certs, error)
-	GetCert(caName string, serialNumber string) (Cert, error)
-	DeleteCert(caName string, serialNumber string) error
-	SignCertificate(caName string, csr *x509.CertificateRequest) (string, error)
+	GetCert(ctx context.Context, caName string, serialNumber string) (Cert, error)
+	DeleteCert(ctx context.Context, caName string, serialNumber string) error
+	SignCertificate(ctx context.Context, caName string, csr *x509.CertificateRequest) (string, error)
 }

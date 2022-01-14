@@ -17,6 +17,8 @@ type Config struct {
 	OidcWellKnownUrl string `required:"true" split_words:"true"`
 	OidcCA           string `split_words:"true"`
 
+	VaultUnsealKeysFile string `required:"true" split_words:"true"`
+
 	VaultAddress  string `required:"true" split_words:"true"`
 	VaultRoleID   string `required:"true" split_words:"true"`
 	VaultSecretID string `required:"true" split_words:"true"`
@@ -24,8 +26,8 @@ type Config struct {
 
 	VaultPkiCaPath string `required:"true" split_words:"true"`
 
-	AmqpIP   string `required:"true" split_words:"true"`
-	AmqpPort string `required:"true" split_words:"true"`
+	// AmqpIP   string `required:"true" split_words:"true"`
+	// AmqpPort string `required:"true" split_words:"true"`
 }
 
 func NewConfig(prefix string) (Config, error) {

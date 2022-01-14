@@ -15,14 +15,12 @@ import (
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/lamassuiot/lamassu-ca/pkg/api"
-	"github.com/lamassuiot/lamassu-ca/pkg/auth"
 	"github.com/lamassuiot/lamassu-ca/pkg/configs"
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets/vault"
 	"github.com/lamassuiot/lamassu-ca/pkg/utils"
 	"github.com/opentracing/opentracing-go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/streadway/amqp"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	jaegerlog "github.com/uber/jaeger-client-go/log"
 )
@@ -31,9 +29,9 @@ func main() {
 
 	var logger log.Logger
 	logger = log.NewJSONLogger(os.Stdout)
+	logger = level.NewFilter(logger, level.AllowDebug())
 	logger = log.With(logger, "ts", log.DefaultTimestampUTC)
 	logger = log.With(logger, "caller", log.DefaultCaller)
-	logger = level.NewFilter(logger, level.AllowDebug())
 
 	/*********************************************************************/
 
@@ -44,10 +42,7 @@ func main() {
 	}
 	level.Info(logger).Log("msg", "Environment configuration values loaded")
 
-	auth := auth.NewAuth(cfg.OidcWellKnownUrl, cfg.OidcCA)
-	level.Info(logger).Log("msg", "Connection established with authentication system")
-
-	secretsVault, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultPkiCaPath, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, cfg.OcspUrl, logger)
+	secretsVault, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultPkiCaPath, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, cfg.VaultUnsealKeysFile, cfg.OcspUrl, logger)
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not start connection with Vault Secret Engine")
 		os.Exit(1)
@@ -75,15 +70,15 @@ func main() {
 
 	fieldKeys := []string{"method", "error"}
 
-	amqpConn, err := amqp.Dial("amqp://guest:guest@" + cfg.AmqpIP + ":" + cfg.AmqpPort + "")
-	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Failed to connect to AMQP")
-		os.Exit(1)
-	}
+	// amqpConn, err := amqp.Dial("amqp://guest:guest@" + cfg.AmqpIP + ":" + cfg.AmqpPort + "")
+	// if err != nil {
+	// 	level.Error(logger).Log("err", err, "msg", "Failed to connect to AMQP")
+	// 	os.Exit(1)
+	// }
 
 	var s api.Service
 	{
-		s = api.NewCAService(logger, secretsVault, amqpConn)
+		s = api.NewCAService(logger, secretsVault)
 		s = api.LoggingMiddleware(logger)(s)
 		s = api.NewInstrumentingMiddleware(
 			kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
@@ -103,7 +98,7 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	mux.Handle("/v1/", api.MakeHTTPHandler(s, log.With(logger, "component", "HTTPS"), auth, tracer))
+	mux.Handle("/v1/", api.MakeHTTPHandler(s, log.With(logger, "component", "HTTPS"), tracer))
 	http.Handle("/v1/docs", middleware.SwaggerUI(middleware.SwaggerUIOpts{
 		BasePath: "/v1/",
 		SpecURL:  path.Join("/", "swagger.json"),

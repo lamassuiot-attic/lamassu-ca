@@ -14,9 +14,6 @@ type Config struct {
 	MutualTLSEnabled  bool   `split_words:"true"`
 	MutualTLSClientCA string `split_words:"true"`
 
-	OidcWellKnownUrl string `required:"true" split_words:"true"`
-	OidcCA           string `split_words:"true"`
-
 	VaultUnsealKeysFile string `required:"true" split_words:"true"`
 
 	VaultAddress  string `required:"true" split_words:"true"`

@@ -25,7 +25,6 @@ import (
 	"github.com/go-kit/kit/log/level"
 
 	"github.com/hashicorp/vault/api"
-	"github.com/hashicorp/vault/vault"
 )
 
 type vaultSecrets struct {
@@ -312,38 +311,6 @@ func (vs *vaultSecrets) initPkiSecret(ctx context.Context, CAName string, enroll
 			return err
 		}
 	}
-
-	// err = vs.client.Sys().PutPolicy(CAName+"-policy", "path \""+CAName+"*\" {\n capabilities=[\"create\", \"read\", \"update\", \"delete\", \"list\", \"sudo\"]\n}")
-	// if err != nil {
-	// 	level.Error(vs.logger).Log("err", err, "msg", "Could not create a new policy for "+CAName+" CA on Vault")
-	// 	return err
-	// }
-
-	// enrollerPolicy, err := vs.client.Sys().GetPolicy("enroller-ca-policy")
-	// if err != nil {
-	// 	level.Error(vs.logger).Log("err", err, "msg", "Error while modifying enroller-ca-policy policy on Vault")
-	// 	return err
-	// }
-
-	// policy, err := vault.ParseACLPolicy(namespace.RootNamespace, enrollerPolicy)
-	// if err != nil {
-	// 	level.Error(vs.logger).Log("err", err, "msg", "Error while parsing enroller-ca-policy policy")
-	// 	return err
-	// }
-
-	// rootPathRules := vault.PathRules{Path: CAName, Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}, IsPrefix: true}
-	// //caPathRules := vault.PathRules{Path: CAName + "/cert/ca", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
-	// //enrollerPathRules := vault.PathRules{Path: CAName + "/roles/enroller", Capabilities: []string{"create", "read", "update", "delete", "list", "sudo"}}
-	// //policy.Paths = append(policy.Paths, &rootPathRules, &caPathRules, &enrollerPathRules)
-	// policy.Paths = append(policy.Paths, &rootPathRules)
-
-	// newPolicy := PolicyToString(*policy)
-
-	// err = vs.client.Sys().PutPolicy("enroller-ca-policy", newPolicy)
-	// if err != nil {
-	// 	level.Error(vs.logger).Log("err", err, "msg", "Error while modifying enroller-ca-policy policy on Vault")
-	// 	return err
-	// }
 
 	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+CAName+"/roles/enroller")
 	_, err = vs.client.Logical().Write(vs.pkiPath+CAName+"/roles/enroller", map[string]interface{}{
@@ -672,26 +639,4 @@ func getPublicKeyInfo(cert x509.Certificate) (string, string, int, string) {
 	}
 
 	return publicKeyPem, key, keyBits, keyStrength
-}
-
-func PolicyToString(policy vault.Policy) string {
-	var policyString string = ""
-	for i, p := range policy.Paths {
-		pathPrefix := ""
-		if p.IsPrefix {
-			pathPrefix = "*"
-		}
-		policyString = policyString + "path \"" + p.Path + pathPrefix + "\" {\n capabilities=["
-		for j, c := range p.Capabilities {
-			policyString = policyString + "\"" + c + "\""
-			if j < len(p.Capabilities)-1 {
-				policyString = policyString + ","
-			}
-		}
-		policyString = policyString + "]\n}"
-		if i < len(policy.Paths)-1 {
-			policyString = policyString + "\n"
-		}
-	}
-	return policyString
 }

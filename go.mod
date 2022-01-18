@@ -4,7 +4,6 @@ go 1.13
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.0 // indirect
-	github.com/dgrijalva/jwt-go v3.2.0+incompatible
 	github.com/go-kit/kit v0.10.0
 	github.com/go-openapi/runtime v0.19.28
 	github.com/go-openapi/spec v0.20.4 // indirect
@@ -15,7 +14,6 @@ require (
 	github.com/hashicorp/vault/api v1.1.1
 	github.com/hashicorp/vault/sdk v0.2.1
 	github.com/kelseyhightower/envconfig v1.4.0
-	github.com/lestrrat-go/jwx v1.2.12
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/prometheus/client_golang v1.8.0

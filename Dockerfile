@@ -8,5 +8,4 @@ RUN CGO_ENABLED=0 go build -o ca cmd/main.go
 
 FROM alpine:3.14
 COPY --from=0 /app/ca /
-COPY ./docs/swagger.json /docs/swagger.json
 CMD ["/ca"]

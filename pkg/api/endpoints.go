@@ -101,8 +101,8 @@ func MakeHealthEndpoint(s Service) endpoint.Endpoint {
 
 func MakeGetCAsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
-		_ = request.(getCAsRequest)
-		CAs, err := s.GetCAs(ctx)
+		req := request.(GetCAsRequest)
+		CAs, err := s.GetCAs(ctx, req.CaType)
 		return CAs.Certs, err
 	}
 }
@@ -110,15 +110,15 @@ func MakeGetCAsEndpoint(s Service) endpoint.Endpoint {
 func MakeCreateCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateCARequest)
-		err = s.CreateCA(ctx, req.CAName, req.CA)
-		return nil, err
+		ca, err := s.CreateCA(ctx, req.CaType, req.CAName, req.CA)
+		return CreateCAResponse{CA: ca}, err
 	}
 }
 
 func MakeDeleteCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(DeleteCARequest)
-		err = s.DeleteCA(ctx, req.CA)
+		err = s.DeleteCA(ctx, req.CaType, req.CA)
 		return errorResponse{Err: err}, nil
 	}
 }
@@ -126,7 +126,7 @@ func MakeDeleteCAEndpoint(s Service) endpoint.Endpoint {
 func MakeImportCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(ImportCARequest)
-		err = s.ImportCA(ctx, req.CAName, req.CAImport)
+		err = s.ImportCA(ctx, req.CaType, req.CAName, req.CAImport)
 		return errorResponse{Err: err}, nil
 	}
 }
@@ -134,7 +134,7 @@ func MakeImportCAEndpoint(s Service) endpoint.Endpoint {
 func MakeIssuedCertsEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CaRequest)
-		certs, err := s.GetIssuedCerts(ctx, req.CA)
+		certs, err := s.GetIssuedCerts(ctx, req.CaType, req.CA)
 		return certs.Certs, err
 	}
 }
@@ -142,7 +142,7 @@ func MakeIssuedCertsEndpoint(s Service) endpoint.Endpoint {
 func MakeCertEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(GetCertRequest)
-		cert, err := s.GetCert(ctx, req.CaName, req.SerialNumber)
+		cert, err := s.GetCert(ctx, req.CaType, req.CaName, req.SerialNumber)
 		return cert, err
 	}
 }
@@ -155,7 +155,7 @@ func MakeSignCertEndpoint(s Service) endpoint.Endpoint {
 		block, _ := pem.Decode([]byte(data))
 		csr, _ := x509.ParseCertificateRequest(block.Bytes)
 
-		crt, err := s.SignCertificate(ctx, req.CAName, *csr)
+		crt, err := s.SignCertificate(ctx, req.CaType, req.CAName, *csr)
 		return SignCertificateResponse{Crt: crt}, err
 	}
 }
@@ -163,7 +163,7 @@ func MakeSignCertEndpoint(s Service) endpoint.Endpoint {
 func MakeDeleteCertEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(DeleteCertRequest)
-		err = s.DeleteCert(ctx, req.CaName, req.SerialNumber)
+		err = s.DeleteCert(ctx, req.CaType, req.CaName, req.SerialNumber)
 		return errorResponse{Err: err}, nil
 	}
 }
@@ -175,42 +175,57 @@ type HealthResponse struct {
 	Err     error `json:"-"`
 }
 
-type getCAsRequest struct{}
+type GetCAsRequest struct {
+	CaType secrets.CAType
+}
 
 type GetCAsResponse struct {
 	CAs secrets.Certs
 	Err error `json:"-"`
 }
 
+type CreateCAResponse struct {
+	CA  secrets.Cert
+	Err error `json:"-"`
+}
+
 func (r GetCAsResponse) error() error { return r.Err }
 
 type CaRequest struct {
+	CaType secrets.CAType
+
 	CA string
 }
 
 type DeleteCARequest struct {
-	CA string
+	CaType secrets.CAType
+	CA     string
 }
 
 type GetCertRequest struct {
+	CaType       secrets.CAType
 	CaName       string
 	SerialNumber string
 }
 type DeleteCertRequest struct {
 	CaName       string
 	SerialNumber string
+	CaType       secrets.CAType
 }
 
 type CreateCARequest struct {
+	CaType secrets.CAType
 	CAName string
 	CA     secrets.Cert
 }
 type ImportCARequest struct {
+	CaType   secrets.CAType
 	CAName   string
 	CAImport secrets.CAImport
 }
 
 type SignCertificateRquest struct {
+	CaType    secrets.CAType
 	CAName    string
 	base64Csr string
 }

@@ -3,6 +3,7 @@ package secrets
 import (
 	"context"
 	"crypto/x509"
+	"errors"
 )
 
 type Cert struct {
@@ -96,22 +97,51 @@ type Subject struct {
 	L string `json:"locality"`
 }
 
+type CAType int
+
+const (
+	DmsEnroller CAType = iota
+	Pki
+)
+
+func ParseCAType(s string) (CAType, error) {
+	switch s {
+	case "dmsenroller":
+		return DmsEnroller, nil
+	case "pki":
+		return Pki, nil
+	}
+	return -1, errors.New("CAType parsing error")
+}
+
+func (c CAType) ToVaultPath() string {
+	switch c {
+	case DmsEnroller:
+		return "_internal/"
+	case Pki:
+		return "_pki/"
+	}
+	return "_pki"
+}
+
 // CAs represents a list of CAs with minimum information
 // swagger:model
 type Certs struct {
 	Certs []Cert `json:"certs"`
 }
+
 type Secrets interface {
 	GetSecretProviderName(ctx context.Context) string
 
-	GetCAs(ctx context.Context) (Certs, error)
-	GetCA(ctx context.Context, caName string) (Cert, error)
-	CreateCA(ctx context.Context, caName string, ca Cert) error
-	ImportCA(ctx context.Context, caName string, caImport CAImport) error
-	DeleteCA(ctx context.Context, caName string) error
+	GetCAs(ctx context.Context, caType CAType) (Certs, error)
+	GetCA(ctx context.Context, caType CAType, caName string) (Cert, error)
+	CreateCA(ctx context.Context, caType CAType, caName string, ca Cert) (Cert, error)
+	ImportCA(ctx context.Context, caType CAType, caName string, caImport CAImport) error
+	DeleteCA(ctx context.Context, caType CAType, caName string) error
 
-	GetIssuedCerts(ctx context.Context, caName string) (Certs, error)
-	GetCert(ctx context.Context, caName string, serialNumber string) (Cert, error)
-	DeleteCert(ctx context.Context, caName string, serialNumber string) error
-	SignCertificate(ctx context.Context, caName string, csr *x509.CertificateRequest) (string, error)
+	GetIssuedCerts(ctx context.Context, caType CAType, caName string) (Certs, error)
+	GetCert(ctx context.Context, caType CAType, caName string, serialNumber string) (Cert, error)
+	DeleteCert(ctx context.Context, caType CAType, caName string, serialNumber string) error
+
+	SignCertificate(ctx context.Context, caType CAType, CAcaName string, csr *x509.CertificateRequest) (string, error)
 }

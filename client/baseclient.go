@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -28,6 +29,7 @@ func NewBaseClient(url *url.URL, httpClient *http.Client) BaseClient {
 }
 
 func (c *ClientConfig) NewRequest(method string, path string, body interface{}) (*http.Request, error) {
+	fmt.Printf("path: %v\n", path)
 	rel := &url.URL{Path: path}
 	u := c.BaseURL.ResolveReference(rel)
 	var buf io.ReadWriter

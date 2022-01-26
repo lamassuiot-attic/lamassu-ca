@@ -47,81 +47,80 @@ func (mw *instrumentingMiddleware) Health(ctx context.Context) bool {
 	return mw.next.Health(ctx)
 }
 
-func (mw *instrumentingMiddleware) GetCAs(ctx context.Context) (CAs secrets.Certs, err error) {
+func (mw *instrumentingMiddleware) GetCAs(ctx context.Context, caType secrets.CAType) (CAs secrets.Certs, err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "GetCAs", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
-
-	return mw.next.GetCAs(ctx)
+	return mw.next.GetCAs(ctx, caType)
 }
 
-func (mw *instrumentingMiddleware) CreateCA(ctx context.Context, caName string, ca secrets.Cert) (err error) {
+func (mw *instrumentingMiddleware) CreateCA(ctx context.Context, caType secrets.CAType, caName string, ca secrets.Cert) (cretedCa secrets.Cert, err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "CreateCA", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.CreateCA(ctx, caName, ca)
+	return mw.next.CreateCA(ctx, caType, caName, ca)
 }
 
-func (mw *instrumentingMiddleware) ImportCA(ctx context.Context, caName string, ca secrets.CAImport) (err error) {
+func (mw *instrumentingMiddleware) ImportCA(ctx context.Context, caType secrets.CAType, caName string, ca secrets.CAImport) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "CreateCA", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.ImportCA(ctx, caName, ca)
+	return mw.next.ImportCA(ctx, caType, caName, ca)
 }
 
-func (mw *instrumentingMiddleware) DeleteCA(ctx context.Context, CA string) (err error) {
+func (mw *instrumentingMiddleware) DeleteCA(ctx context.Context, caType secrets.CAType, CA string) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "DeleteCA", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.DeleteCA(ctx, CA)
+	return mw.next.DeleteCA(ctx, caType, CA)
 }
 
-func (mw *instrumentingMiddleware) GetIssuedCerts(ctx context.Context, caName string) (certs secrets.Certs, err error) {
+func (mw *instrumentingMiddleware) GetIssuedCerts(ctx context.Context, caType secrets.CAType, caName string) (certs secrets.Certs, err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "GetIssuedCerts", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.GetIssuedCerts(ctx, caName)
+	return mw.next.GetIssuedCerts(ctx, caType, caName)
 }
-func (mw *instrumentingMiddleware) GetCert(ctx context.Context, caName string, serialNumber string) (cert secrets.Cert, err error) {
+func (mw *instrumentingMiddleware) GetCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (cert secrets.Cert, err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "GetCert", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.GetCert(ctx, caName, serialNumber)
+	return mw.next.GetCert(ctx, caType, caName, serialNumber)
 }
 
-func (mw *instrumentingMiddleware) DeleteCert(ctx context.Context, caName string, serialNumber string) (err error) {
+func (mw *instrumentingMiddleware) DeleteCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "DeleteCert", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.DeleteCert(ctx, caName, serialNumber)
+	return mw.next.DeleteCert(ctx, caType, caName, serialNumber)
 }
 
-func (mw *instrumentingMiddleware) SignCertificate(ctx context.Context, caName string, csr x509.CertificateRequest) (crt string, err error) {
+func (mw *instrumentingMiddleware) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr x509.CertificateRequest) (crt string, err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "SignCertificate", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.SignCertificate(ctx, caName, csr)
+	return mw.next.SignCertificate(ctx, caType, caName, csr)
 }

@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/json"
@@ -13,17 +14,21 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"net/http"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	lamassuapi "github.com/lamassuiot/lamassu-ca/pkg/api"
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
+	"github.com/lamassuiot/lamassu-ca/pkg/utils"
 	"github.com/opentracing/opentracing-go"
 
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 
+	"github.com/hashicorp/go-cleanhttp"
 	"github.com/hashicorp/vault/api"
 )
 
@@ -32,16 +37,39 @@ type vaultSecrets struct {
 	roleID   string
 	secretID string
 	pkiPath  string
-	logger   log.Logger
 	ocspUrl  string
 }
 
+// This type implements the http.RoundTripper interface
+type LoggingRoundTripper struct {
+	next http.RoundTripper
+}
+
+func NewLoggingRoundTripper(next http.RoundTripper) *LoggingRoundTripper {
+	return &LoggingRoundTripper{
+		next: next,
+	}
+}
+
+func (lrt LoggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response, e error) {
+	// Do "before sending requests" actions here.
+	// Send the request, get the response (or the error)
+	span := opentracing.StartSpan(req.URL.Path)
+	res, e = lrt.next.RoundTrip(req)
+	span.Finish()
+
+	// Handle the result.
+	if e != nil {
+		// fmt.Printf("Error: %v", e)
+	} else {
+		// fmt.Printf("Received %v response\n", res.Status)
+	}
+
+	return
+}
+
 func NewVaultSecrets(address string, pkiPath string, roleID string, secretID string, CA string, unsealFile string, ocspUrl string, logger log.Logger) (*vaultSecrets, error) {
-	conf := api.DefaultConfig()
-	conf.Address = strings.ReplaceAll(conf.Address, "https://127.0.0.1:8200", address)
-	tlsConf := &api.TLSConfig{CACert: CA}
-	conf.ConfigureTLS(tlsConf)
-	client, err := api.NewClient(conf)
+	client, err := CreateVaultSdkClient(address, CA, logger)
 	if err != nil {
 		return nil, errors.New("Could not create Vault API client: " + err.Error())
 	}
@@ -62,8 +90,29 @@ func NewVaultSecrets(address string, pkiPath string, roleID string, secretID str
 		roleID:   roleID,
 		secretID: secretID,
 		ocspUrl:  ocspUrl,
-		logger:   logger,
 	}, nil
+}
+
+func CreateVaultSdkClient(vaultAddress string, vaultCaCertFilePath string, logger log.Logger) (*api.Client, error) {
+	conf := api.DefaultConfig()
+	httpClient := cleanhttp.DefaultPooledClient()
+	httpTrasport := cleanhttp.DefaultPooledTransport()
+	caPool, err := utils.CreateCAPool(vaultCaCertFilePath)
+
+	if err != nil {
+		return nil, err
+	}
+
+	httpTrasport.TLSClientConfig = &tls.Config{
+		RootCAs: caPool,
+	}
+	httpClient.Transport = NewLoggingRoundTripper(httpTrasport)
+	conf.HttpClient = httpClient
+	conf.Address = strings.ReplaceAll(conf.Address, "https://127.0.0.1:8200", vaultAddress)
+	// tlsConf := &api.TLSConfig{CACert: CA}
+	// conf.ConfigureTLS(tlsConf)
+	return api.NewClient(conf)
+
 }
 
 func Unseal(client *api.Client, unsealFile string, logger log.Logger) error {
@@ -121,15 +170,15 @@ func (vs *vaultSecrets) GetSecretProviderName(ctx context.Context) string {
 	return "Hashicorp_Vault"
 }
 
-func (vs *vaultSecrets) SignCertificate(ctx context.Context, caName string, csr *x509.CertificateRequest) (string, error) {
+func (vs *vaultSecrets) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr *x509.CertificateRequest) (string, error) {
 	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
 	options := map[string]interface{}{
 		"csr":         string(csrBytes),
 		"common_name": csr.Subject.CommonName,
 	}
 
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caName+"/sign-verbatim/enroller")
-	data, err := vs.client.Logical().Write(vs.pkiPath+caName+"/sign-verbatim/enroller", options)
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller")
+	data, err := vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller", options)
 	span.Finish()
 	if err != nil {
 		return "", err
@@ -144,11 +193,11 @@ func (vs *vaultSecrets) SignCertificate(ctx context.Context, caName string, csr 
 	return base64.StdEncoding.EncodeToString([]byte(certData.(string))), nil
 }
 
-func (vs *vaultSecrets) GetCA(ctx context.Context, caName string) (secrets.Cert, error) {
-	logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+func (vs *vaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName string) (secrets.Cert, error) {
+	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
 
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caName+"/cert/ca")
-	resp, err := vs.client.Logical().Read(vs.pkiPath + caName + "/cert/ca")
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/cert/ca")
+	resp, err := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/cert/ca")
 	span.Finish()
 
 	if err != nil {
@@ -174,7 +223,7 @@ func (vs *vaultSecrets) GetCA(ctx context.Context, caName string) (secrets.Cert,
 		status = "expired"
 	}
 
-	if !vs.hasEnrollerRole(ctx, caName) {
+	if !vs.hasEnrollerRole(ctx, caType, caName) {
 		status = "revoked"
 	}
 
@@ -204,8 +253,9 @@ func (vs *vaultSecrets) GetCA(ctx context.Context, caName string) (secrets.Cert,
 	}, nil
 }
 
-func (vs *vaultSecrets) GetCAs(ctx context.Context) (secrets.Certs, error) {
-	logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+func (vs *vaultSecrets) GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error) {
+	// logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
 
 	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/sys/mounts")
 	resp, err := vs.client.Sys().ListMounts()
@@ -221,37 +271,40 @@ func (vs *vaultSecrets) GetCAs(ctx context.Context) (secrets.Certs, error) {
 		if mountOutput.Type == "pki" && strings.HasPrefix(mount, vs.pkiPath) {
 			caName := strings.TrimSuffix(mount, "/")
 			caName = strings.TrimPrefix(caName, vs.pkiPath)
-			cert, err := vs.GetCA(ctx, caName)
-			if err != nil {
-				level.Error(logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
-				continue
+			if strings.Contains(caName, caType.ToVaultPath()) {
+				caName = strings.TrimPrefix(caName, caType.ToVaultPath())
+				cert, err := vs.GetCA(ctx, caType, caName)
+				if err != nil {
+					level.Error(logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
+					continue
+				}
+				CAs.Certs = append(CAs.Certs, cert)
 			}
-			CAs.Certs = append(CAs.Certs, cert)
 		}
 	}
 	level.Info(logger).Log("msg", strconv.Itoa(len(CAs.Certs))+" obtained from Vault mounts")
 	return CAs, nil
 }
 
-func (vs *vaultSecrets) CreateCA(ctx context.Context, CAName string, ca secrets.Cert) error {
-	logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+func (vs *vaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAName string, ca secrets.Cert) (secrets.Cert, error) {
+	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
 
-	err := vs.initPkiSecret(ctx, CAName, ca.EnrollerTTL)
+	err := vs.initPkiSecret(ctx, caType, CAName, ca.EnrollerTTL)
 	if err != nil {
-		return err
+		return secrets.Cert{}, nil
 	}
 
 	tuneOptions := map[string]interface{}{
 		"max_lease_ttl": strconv.Itoa(ca.CaTTL) + "h",
 	}
 
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/sys/mounts/"+vs.pkiPath+CAName+"/tune")
-	_, err = vs.client.Logical().Write("/v1/sys/mounts/"+vs.pkiPath+CAName+"/tune", tuneOptions)
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/sys/mounts/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/tune")
+	_, err = vs.client.Logical().Write("/sys/mounts/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/tune", tuneOptions)
 	span.Finish()
 
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not tune CA "+CAName)
-		return err
+		return secrets.Cert{}, nil
 	}
 
 	options := map[string]interface{}{
@@ -266,20 +319,21 @@ func (vs *vaultSecrets) CreateCA(ctx context.Context, CAName string, ca secrets.
 		"ttl":               strconv.Itoa(ca.CaTTL) + "h",
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+CAName+"/root/generate/internal")
-	_, err = vs.client.Logical().Write(vs.pkiPath+CAName+"/root/generate/internal", options)
+	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/root/generate/internal")
+	_, err = vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+CAName+"/root/generate/internal", options)
 	span.Finish()
 
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
-		return err
+		return secrets.Cert{}, nil
 	}
-	return nil
+
+	return vs.GetCA(ctx, caType, CAName)
 }
 
-func (vs *vaultSecrets) ImportCA(ctx context.Context, CAName string, caImport secrets.CAImport) error {
+func (vs *vaultSecrets) ImportCA(ctx context.Context, caType secrets.CAType, CAName string, caImport secrets.CAImport) error {
 	fmt.Println(caImport.PEMBundle)
-	err := vs.initPkiSecret(ctx, CAName, caImport.TTL)
+	err := vs.initPkiSecret(ctx, caType, CAName, caImport.TTL)
 	if err != nil {
 		return err
 	}
@@ -287,20 +341,20 @@ func (vs *vaultSecrets) ImportCA(ctx context.Context, CAName string, caImport se
 		"pem_bundle": caImport.PEMBundle,
 	}
 
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+CAName+"/config/ca")
-	_, err = vs.client.Logical().Write(vs.pkiPath+CAName+"/config/ca", options)
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/config/ca")
+	_, err = vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+CAName+"/config/ca", options)
 	span.Finish()
 
 	return nil
 }
 
-func (vs *vaultSecrets) initPkiSecret(ctx context.Context, CAName string, enrollerTTL int) error {
-	logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+func (vs *vaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType, CAName string, enrollerTTL int) error {
+	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
 
 	mountInput := api.MountInput{Type: "pki", Description: ""}
 
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/sys/mounts/"+vs.pkiPath+CAName)
-	err := vs.client.Sys().Mount(vs.pkiPath+CAName, &mountInput)
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/sys/mounts/"+vs.pkiPath+caType.ToVaultPath()+CAName)
+	err := vs.client.Sys().Mount(vs.pkiPath+caType.ToVaultPath()+CAName, &mountInput)
 	span.Finish()
 
 	if err != nil {
@@ -312,8 +366,8 @@ func (vs *vaultSecrets) initPkiSecret(ctx context.Context, CAName string, enroll
 		}
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+CAName+"/roles/enroller")
-	_, err = vs.client.Logical().Write(vs.pkiPath+CAName+"/roles/enroller", map[string]interface{}{
+	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/roles/enroller")
+	_, err = vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+CAName+"/roles/enroller", map[string]interface{}{
 		"allow_any_name": true,
 		"ttl":            strconv.Itoa(enrollerTTL) + "h",
 		"max_ttl":        strconv.Itoa(enrollerTTL) + "h",
@@ -326,8 +380,8 @@ func (vs *vaultSecrets) initPkiSecret(ctx context.Context, CAName string, enroll
 		return err
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+CAName+"/config/urls")
-	_, err = vs.client.Logical().Write(vs.pkiPath+CAName+"/config/urls", map[string]interface{}{
+	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/config/urls")
+	_, err = vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+CAName+"/config/urls", map[string]interface{}{
 		"ocsp_servers": []string{
 			vs.ocspUrl,
 		},
@@ -342,17 +396,17 @@ func (vs *vaultSecrets) initPkiSecret(ctx context.Context, CAName string, enroll
 	return nil
 }
 
-func (vs *vaultSecrets) DeleteCA(ctx context.Context, ca string) error {
-	logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+func (vs *vaultSecrets) DeleteCA(ctx context.Context, caType secrets.CAType, ca string) error {
+	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
 
-	certsToRevoke, err := vs.GetIssuedCerts(ctx, ca)
+	certsToRevoke, err := vs.GetIssuedCerts(ctx, caType, ca)
 	for i := 0; i < len(certsToRevoke.Certs); i++ {
-		err = vs.DeleteCert(ctx, ca, certsToRevoke.Certs[i].SerialNumber)
+		err = vs.DeleteCert(ctx, caType, ca, certsToRevoke.Certs[i].SerialNumber)
 		level.Warn(logger).Log("err", err, "msg", "Could not revoke issued cert with serial number "+certsToRevoke.Certs[i].SerialNumber)
 	}
 
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+ca+"/root")
-	_, err = vs.client.Logical().Delete(vs.pkiPath + ca + "/root")
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+caType.ToVaultPath()+ca+"/root")
+	_, err = vs.client.Logical().Delete(vs.pkiPath + caType.ToVaultPath() + ca + "/root")
 	span.Finish()
 
 	if err != nil {
@@ -360,8 +414,8 @@ func (vs *vaultSecrets) DeleteCA(ctx context.Context, ca string) error {
 		return err
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+ca+"/roles/enroller")
-	_, err = vs.client.Logical().Delete(vs.pkiPath + ca + "/roles/enroller")
+	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+caType.ToVaultPath()+ca+"/roles/enroller")
+	_, err = vs.client.Logical().Delete(vs.pkiPath + caType.ToVaultPath() + ca + "/roles/enroller")
 	span.Finish()
 
 	if err != nil {
@@ -371,11 +425,11 @@ func (vs *vaultSecrets) DeleteCA(ctx context.Context, ca string) error {
 	return nil
 }
 
-func (vs *vaultSecrets) GetCert(ctx context.Context, caName string, serialNumber string) (secrets.Cert, error) {
-	logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+func (vs *vaultSecrets) GetCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (secrets.Cert, error) {
+	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
 
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+caName+"/cert/"+serialNumber)
-	certResponse, err := vs.client.Logical().Read(vs.pkiPath + caName + "/cert/" + serialNumber)
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/cert/"+serialNumber)
+	certResponse, err := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/cert/" + serialNumber)
 	span.Finish()
 
 	if err != nil {
@@ -427,21 +481,21 @@ func (vs *vaultSecrets) GetCert(ctx context.Context, caName string, serialNumber
 	}, nil
 }
 
-func (vs *vaultSecrets) GetIssuedCerts(ctx context.Context, caName string) (secrets.Certs, error) {
-	logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+func (vs *vaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CAType, caName string) (secrets.Certs, error) {
+	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
 
 	var Certs secrets.Certs
 	Certs.Certs = make([]secrets.Cert, 0)
 
 	if caName == "" {
-		cas, err := vs.GetCAs(ctx)
+		cas, err := vs.GetCAs(ctx, caType)
 		if err != nil {
 			level.Error(logger).Log("err", err, "msg", "Could not get CAs from Vault")
 			return secrets.Certs{}, err
 		}
 		for _, cert := range cas.Certs {
 			if cert.Name != "" {
-				certsSubset, err := vs.GetIssuedCerts(ctx, cert.Name)
+				certsSubset, err := vs.GetIssuedCerts(ctx, caType, cert.Name)
 				if err != nil {
 					level.Error(logger).Log("err", err, "msg", "Error while getting issued cert subset for CA "+cert.Name)
 					continue
@@ -450,8 +504,8 @@ func (vs *vaultSecrets) GetIssuedCerts(ctx context.Context, caName string) (secr
 			}
 		}
 	} else {
-		span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api LIST /v1/"+vs.pkiPath+caName+"/certs")
-		resp, err := vs.client.Logical().List(vs.pkiPath + caName + "/certs")
+		span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api LIST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/certs")
+		resp, err := vs.client.Logical().List(vs.pkiPath + caType.ToVaultPath() + caName + "/certs")
 		span.Finish()
 
 		if err != nil {
@@ -459,7 +513,7 @@ func (vs *vaultSecrets) GetIssuedCerts(ctx context.Context, caName string) (secr
 			return secrets.Certs{}, err
 		}
 
-		caCert, err := vs.GetCA(ctx, caName)
+		caCert, err := vs.GetCA(ctx, caType, caName)
 		if err != nil {
 			level.Error(logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
 			return secrets.Certs{}, err
@@ -471,8 +525,8 @@ func (vs *vaultSecrets) GetIssuedCerts(ctx context.Context, caName string) (secr
 				continue
 			}
 
-			span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caName+"/cert"+certSerialID)
-			certResponse, err := vs.client.Logical().Read(vs.pkiPath + caName + "/cert/" + certSerialID)
+			span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/cert"+certSerialID)
+			certResponse, err := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/cert/" + certSerialID)
 			span.Finish()
 
 			if err != nil {
@@ -532,15 +586,15 @@ func (vs *vaultSecrets) GetIssuedCerts(ctx context.Context, caName string) (secr
 
 }
 
-func (vs *vaultSecrets) DeleteCert(ctx context.Context, caName string, serialNumber string) error {
-	logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+func (vs *vaultSecrets) DeleteCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) error {
+	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
 
 	options := map[string]interface{}{
 		"serial_number": serialNumber,
 	}
 
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caName+"/revoke serialnumber="+serialNumber)
-	_, err := vs.client.Logical().Write(vs.pkiPath+caName+"/revoke", options)
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/revoke serialnumber="+serialNumber)
+	_, err := vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+caName+"/revoke", options)
 	span.Finish()
 
 	if err != nil {
@@ -548,6 +602,18 @@ func (vs *vaultSecrets) DeleteCert(ctx context.Context, caName string, serialNum
 		return err
 	}
 	return nil
+}
+
+func (vs *vaultSecrets) hasEnrollerRole(ctx context.Context, caType secrets.CAType, caName string) bool {
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/roles/enroller")
+	data, _ := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/roles/enroller")
+	span.Finish()
+
+	if data == nil {
+		return false
+	} else {
+		return true
+	}
 }
 
 func insertNth(s string, n int) string {
@@ -588,18 +654,6 @@ func DecodeCert(cert []byte) (x509.Certificate, error) {
 		return x509.Certificate{}, err
 	}
 	return *caCert, nil
-}
-
-func (vs *vaultSecrets) hasEnrollerRole(ctx context.Context, caName string) bool {
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caName+"/roles/enroller")
-	data, _ := vs.client.Logical().Read(vs.pkiPath + caName + "/roles/enroller")
-	span.Finish()
-
-	if data == nil {
-		return false
-	} else {
-		return true
-	}
 }
 
 func getPublicKeyInfo(cert x509.Certificate) (string, string, int, string) {

@@ -52,58 +52,63 @@ func (mw loggingMiddleware) Health(ctx context.Context) (healthy bool) {
 	return mw.next.Health(ctx)
 }
 
-func (mw loggingMiddleware) GetCAs(ctx context.Context) (CAs secrets.Certs, err error) {
+func (mw loggingMiddleware) GetCAs(ctx context.Context, caType secrets.CAType) (CAs secrets.Certs, err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "GetCAs",
 			"number_cas", len(CAs.Certs),
+			"ca_type", caType,
 			"took", time.Since(begin),
 			"err", err,
 			"trace_id", opentracing.SpanFromContext(ctx),
 		)
 	}(time.Now())
-	return mw.next.GetCAs(ctx)
+	return mw.next.GetCAs(ctx, caType)
 }
 
-func (mw loggingMiddleware) CreateCA(ctx context.Context, caName string, ca secrets.Cert) (err error) {
+func (mw loggingMiddleware) CreateCA(ctx context.Context, caType secrets.CAType, caName string, ca secrets.Cert) (cretedCa secrets.Cert, err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "CreateCA",
 			"ca_name", caName,
+			"ca_type", caType,
 			"ca_info", ca,
+			"creted_ca", cretedCa,
 			"err", err,
 			"trace_id", opentracing.SpanFromContext(ctx),
 		)
 	}(time.Now())
-	return mw.next.CreateCA(ctx, caName, ca)
+	return mw.next.CreateCA(ctx, caType, caName, ca)
 }
 
-func (mw loggingMiddleware) ImportCA(ctx context.Context, caName string, ca secrets.CAImport) (err error) {
+func (mw loggingMiddleware) ImportCA(ctx context.Context, caType secrets.CAType, caName string, ca secrets.CAImport) (err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "CreateCA",
 			"ca_name", caName,
+			"ca_type", caType,
 			"trace_id", opentracing.SpanFromContext(ctx),
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.ImportCA(ctx, caName, ca)
+	return mw.next.ImportCA(ctx, caType, caName, ca)
 }
 
-func (mw loggingMiddleware) DeleteCA(ctx context.Context, CA string) (err error) {
+func (mw loggingMiddleware) DeleteCA(ctx context.Context, caType secrets.CAType, CA string) (err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "DeleteCA",
 			"ca_name", CA,
+			"ca_type", caType,
 			"took", time.Since(begin),
 			"trace_id", opentracing.SpanFromContext(ctx),
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.DeleteCA(ctx, CA)
+	return mw.next.DeleteCA(ctx, caType, CA)
 }
 
-func (mw loggingMiddleware) GetIssuedCerts(ctx context.Context, CA string) (certs secrets.Certs, err error) {
+func (mw loggingMiddleware) GetIssuedCerts(ctx context.Context, caType secrets.CAType, CA string) (certs secrets.Certs, err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "GetIssuedCerts",
@@ -114,9 +119,9 @@ func (mw loggingMiddleware) GetIssuedCerts(ctx context.Context, CA string) (cert
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.GetIssuedCerts(ctx, CA)
+	return mw.next.GetIssuedCerts(ctx, caType, CA)
 }
-func (mw loggingMiddleware) GetCert(ctx context.Context, caName string, serialNumber string) (cert secrets.Cert, err error) {
+func (mw loggingMiddleware) GetCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (cert secrets.Cert, err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "GetCert",
@@ -128,10 +133,10 @@ func (mw loggingMiddleware) GetCert(ctx context.Context, caName string, serialNu
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.GetCert(ctx, caName, serialNumber)
+	return mw.next.GetCert(ctx, caType, caName, serialNumber)
 }
 
-func (mw loggingMiddleware) DeleteCert(ctx context.Context, caName string, serialNumber string) (err error) {
+func (mw loggingMiddleware) DeleteCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "DeleteCert",
@@ -142,14 +147,15 @@ func (mw loggingMiddleware) DeleteCert(ctx context.Context, caName string, seria
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.DeleteCert(ctx, caName, serialNumber)
+	return mw.next.DeleteCert(ctx, caType, caName, serialNumber)
 }
 
-func (mw loggingMiddleware) SignCertificate(ctx context.Context, caName string, csr x509.CertificateRequest) (crt string, err error) {
+func (mw loggingMiddleware) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr x509.CertificateRequest) (crt string, err error) {
 	defer func(begin time.Time) {
 		mw.logger.Log(
 			"method", "SignCertificate",
 			"ca_name", caName,
+			"ca_type", caType,
 			"csr", csr,
 			"crt", crt,
 			"took", time.Since(begin),
@@ -157,5 +163,5 @@ func (mw loggingMiddleware) SignCertificate(ctx context.Context, caName string, 
 			"err", err,
 		)
 	}(time.Now())
-	return mw.next.SignCertificate(ctx, caName, csr)
+	return mw.next.SignCertificate(ctx, caType, caName, csr)
 }

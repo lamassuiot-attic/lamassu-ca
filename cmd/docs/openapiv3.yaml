@@ -246,6 +246,25 @@ components:
                     value:
                       extensionprops: {}
                       type: string
+    postCSRRequest:
+      ref: ""
+      value:
+        extensionprops: {}
+        description: Request used for getting all a certificates
+        required: true
+        content:
+          application/json:
+            extensionprops: {}
+            schema:
+              ref: ""
+              value:
+                extensionprops: {}
+                properties:
+                  csr:
+                    ref: ""
+                    value:
+                      extensionprops: {}
+                      type: string
   responses:
     CreateCAResponse:
       ref: ""
@@ -749,7 +768,7 @@ paths:
               extensionprops: {}
               type: string
       requestBody:
-        ref: '#/components/requestBodies/ImportCARequest'
+        ref: '#/components/requestBodies/postCSRRequest'
         value: null
       responses:
         "200":

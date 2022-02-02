@@ -20,7 +20,6 @@ import (
 	"strings"
 	"time"
 
-	lamassuapi "github.com/lamassuiot/lamassu-ca/pkg/api"
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 	"github.com/lamassuiot/lamassu-ca/pkg/utils"
 	"github.com/opentracing/opentracing-go"
@@ -32,7 +31,7 @@ import (
 	"github.com/hashicorp/vault/api"
 )
 
-type vaultSecrets struct {
+type VaultSecrets struct {
 	client   *api.Client
 	roleID   string
 	secretID string
@@ -68,7 +67,7 @@ func (lrt LoggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response,
 	return
 }
 
-func NewVaultSecrets(address string, pkiPath string, roleID string, secretID string, CA string, unsealFile string, ocspUrl string, logger log.Logger) (*vaultSecrets, error) {
+func NewVaultSecrets(address string, pkiPath string, roleID string, secretID string, CA string, unsealFile string, ocspUrl string, logger log.Logger) (*VaultSecrets, error) {
 	client, err := CreateVaultSdkClient(address, CA, logger)
 	if err != nil {
 		return nil, errors.New("Could not create Vault API client: " + err.Error())
@@ -84,7 +83,17 @@ func NewVaultSecrets(address string, pkiPath string, roleID string, secretID str
 		return nil, errors.New("Could not login into Vault: " + err.Error())
 	}
 
-	return &vaultSecrets{
+	return &VaultSecrets{
+		client:   client,
+		pkiPath:  pkiPath,
+		roleID:   roleID,
+		secretID: secretID,
+		ocspUrl:  ocspUrl,
+	}, nil
+}
+
+func NewVaultSecretsWithClient(client *api.Client, address string, pkiPath string, roleID string, secretID string, CA string, unsealFile string, ocspUrl string, logger log.Logger) (*VaultSecrets, error) {
+	return &VaultSecrets{
 		client:   client,
 		pkiPath:  pkiPath,
 		roleID:   roleID,
@@ -166,11 +175,11 @@ func Login(client *api.Client, roleID string, secretID string) error {
 	return nil
 }
 
-func (vs *vaultSecrets) GetSecretProviderName(ctx context.Context) string {
+func (vs *VaultSecrets) GetSecretProviderName(ctx context.Context) string {
 	return "Hashicorp_Vault"
 }
 
-func (vs *vaultSecrets) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr *x509.CertificateRequest) (string, error) {
+func (vs *VaultSecrets) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr *x509.CertificateRequest) (string, error) {
 	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
 	options := map[string]interface{}{
 		"csr":         string(csrBytes),
@@ -193,8 +202,8 @@ func (vs *vaultSecrets) SignCertificate(ctx context.Context, caType secrets.CATy
 	return base64.StdEncoding.EncodeToString([]byte(certData.(string))), nil
 }
 
-func (vs *vaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName string) (secrets.Cert, error) {
-	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
+func (vs *VaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName string) (secrets.Cert, error) {
+	logger := ctx.Value("LamassuLogger").(log.Logger)
 
 	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/cert/ca")
 	resp, err := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/cert/ca")
@@ -228,7 +237,7 @@ func (vs *vaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName
 	}
 
 	return secrets.Cert{
-		SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
+		SerialNumber: InsertNth(ToHexInt(cert.SerialNumber), 2),
 		Status:       status,
 		Name:         caName,
 		CertContent: secrets.CertContent{
@@ -253,9 +262,9 @@ func (vs *vaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName
 	}, nil
 }
 
-func (vs *vaultSecrets) GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error) {
+func (vs *VaultSecrets) GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error) {
 	// logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
-	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
+	logger := ctx.Value("LamassuLogger").(log.Logger)
 
 	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/sys/mounts")
 	resp, err := vs.client.Sys().ListMounts()
@@ -286,9 +295,13 @@ func (vs *vaultSecrets) GetCAs(ctx context.Context, caType secrets.CAType) (secr
 	return CAs, nil
 }
 
-func (vs *vaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAName string, ca secrets.Cert) (secrets.Cert, error) {
-	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
+func (vs *VaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAName string, ca secrets.Cert) (secrets.Cert, error) {
+	logger := ctx.Value("LamassuLogger").(log.Logger)
 
+	if len(CAName) == 0 {
+		err := errors.New("CA name not defined")
+		return secrets.Cert{}, err
+	}
 	err := vs.initPkiSecret(ctx, caType, CAName, ca.EnrollerTTL)
 	if err != nil {
 		return secrets.Cert{}, nil
@@ -331,8 +344,7 @@ func (vs *vaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAN
 	return vs.GetCA(ctx, caType, CAName)
 }
 
-func (vs *vaultSecrets) ImportCA(ctx context.Context, caType secrets.CAType, CAName string, caImport secrets.CAImport) error {
-	fmt.Println(caImport.PEMBundle)
+func (vs *VaultSecrets) ImportCA(ctx context.Context, caType secrets.CAType, CAName string, caImport secrets.CAImport) error {
 	err := vs.initPkiSecret(ctx, caType, CAName, caImport.TTL)
 	if err != nil {
 		return err
@@ -348,14 +360,14 @@ func (vs *vaultSecrets) ImportCA(ctx context.Context, caType secrets.CAType, CAN
 	return nil
 }
 
-func (vs *vaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType, CAName string, enrollerTTL int) error {
-	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
+func (vs *VaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType, CAName string, enrollerTTL int) error {
+	logger := ctx.Value("LamassuLogger").(log.Logger)
 
 	mountInput := api.MountInput{Type: "pki", Description: ""}
 
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/sys/mounts/"+vs.pkiPath+caType.ToVaultPath()+CAName)
+	// span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/sys/mounts/"+vs.pkiPath+caType.ToVaultPath()+CAName)
 	err := vs.client.Sys().Mount(vs.pkiPath+caType.ToVaultPath()+CAName, &mountInput)
-	span.Finish()
+	// span.Finish()
 
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not create a new pki mount point on Vaul.t")
@@ -366,7 +378,7 @@ func (vs *vaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType
 		}
 	}
 
-	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/roles/enroller")
+	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/roles/enroller")
 	_, err = vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+CAName+"/roles/enroller", map[string]interface{}{
 		"allow_any_name": true,
 		"ttl":            strconv.Itoa(enrollerTTL) + "h",
@@ -396,13 +408,19 @@ func (vs *vaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType
 	return nil
 }
 
-func (vs *vaultSecrets) DeleteCA(ctx context.Context, caType secrets.CAType, ca string) error {
-	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
+func (vs *VaultSecrets) DeleteCA(ctx context.Context, caType secrets.CAType, ca string) error {
+	logger := ctx.Value("LamassuLogger").(log.Logger)
 
+	if len(ca) == 0 {
+		err := errors.New("CA name not defined")
+		return err
+	}
 	certsToRevoke, err := vs.GetIssuedCerts(ctx, caType, ca)
-	for i := 0; i < len(certsToRevoke.Certs); i++ {
-		err = vs.DeleteCert(ctx, caType, ca, certsToRevoke.Certs[i].SerialNumber)
-		level.Warn(logger).Log("err", err, "msg", "Could not revoke issued cert with serial number "+certsToRevoke.Certs[i].SerialNumber)
+	if len(certsToRevoke.Certs) > 0 {
+		for i := 0; i < len(certsToRevoke.Certs); i++ {
+			err = vs.DeleteCert(ctx, caType, ca, certsToRevoke.Certs[i].SerialNumber)
+			level.Warn(logger).Log("err", err, "msg", "Could not revoke issued cert with serial number "+certsToRevoke.Certs[i].SerialNumber)
+		}
 	}
 
 	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+caType.ToVaultPath()+ca+"/root")
@@ -410,8 +428,9 @@ func (vs *vaultSecrets) DeleteCA(ctx context.Context, caType secrets.CAType, ca 
 	span.Finish()
 
 	if err != nil {
+
 		level.Error(logger).Log("err", err, "msg", "Could not delete "+ca+" certificate from Vault")
-		return err
+		return errors.New("Could not delete certificate from Vault")
 	}
 
 	span, _ = opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+caType.ToVaultPath()+ca+"/roles/enroller")
@@ -425,8 +444,8 @@ func (vs *vaultSecrets) DeleteCA(ctx context.Context, caType secrets.CAType, ca 
 	return nil
 }
 
-func (vs *vaultSecrets) GetCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (secrets.Cert, error) {
-	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
+func (vs *VaultSecrets) GetCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (secrets.Cert, error) {
+	logger := ctx.Value("LamassuLogger").(log.Logger)
 
 	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/cert/"+serialNumber)
 	certResponse, err := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/cert/" + serialNumber)
@@ -456,7 +475,7 @@ func (vs *vaultSecrets) GetCert(ctx context.Context, caType secrets.CAType, caNa
 		status = "revoked"
 	}
 	return secrets.Cert{
-		SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
+		SerialNumber: InsertNth(ToHexInt(cert.SerialNumber), 2),
 		Status:       status,
 		Name:         caName,
 		CertContent: secrets.CertContent{
@@ -481,8 +500,8 @@ func (vs *vaultSecrets) GetCert(ctx context.Context, caType secrets.CAType, caNa
 	}, nil
 }
 
-func (vs *vaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CAType, caName string) (secrets.Certs, error) {
-	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
+func (vs *VaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CAType, caName string) (secrets.Certs, error) {
+	logger := ctx.Value("LamassuLogger").(log.Logger)
 
 	var Certs secrets.Certs
 	Certs.Certs = make([]secrets.Cert, 0)
@@ -519,75 +538,82 @@ func (vs *vaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CATyp
 			return secrets.Certs{}, err
 		}
 
-		for _, elem := range resp.Data["keys"].([]interface{}) {
-			certSerialID := elem.(string)
-			if caCert.SerialNumber == certSerialID {
-				continue
-			}
+		if resp != nil && len(resp.Data["keys"].([]interface{})) > 0 {
+			for _, elem := range resp.Data["keys"].([]interface{}) {
+				certSerialID := elem.(string)
+				if len(caCert.SerialNumber) == 0 {
+					err = errors.New("Certificate without Serial Number")
+					return secrets.Certs{}, err
+				} else {
+					if caCert.SerialNumber == certSerialID {
+						continue
+					}
 
-			span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/cert"+certSerialID)
-			certResponse, err := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/cert/" + certSerialID)
-			span.Finish()
+					span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/cert"+certSerialID)
+					certResponse, err := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/cert/" + certSerialID)
+					span.Finish()
 
-			if err != nil {
-				level.Error(logger).Log("err", err, "msg", "Could not read certificate "+certSerialID+" from CA "+caName)
-				continue
-			}
-			cert, err := DecodeCert([]byte(certResponse.Data["certificate"].(string)))
-			if err != nil {
-				err = errors.New("Cannot decode cert " + certSerialID + ". Perhaps it is malphormed")
-				level.Warn(logger).Log("err", err)
-				continue
-			}
+					if err != nil {
+						level.Error(logger).Log("err", err, "msg", "Could not read certificate "+certSerialID+" from CA "+caName)
+						continue
+					}
+					cert, err := DecodeCert([]byte(certResponse.Data["certificate"].(string)))
+					if err != nil {
+						err = errors.New("Cannot decode cert " + certSerialID + ". Perhaps it is malphormed")
+						level.Warn(logger).Log("err", err)
+						continue
+					}
 
-			pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
-			hasExpired := cert.NotAfter.Before(time.Now())
-			status := "issued"
-			if hasExpired {
-				status = "expired"
-			}
-			revocation_time, err := certResponse.Data["revocation_time"].(json.Number).Int64()
-			if err != nil {
-				err = errors.New("revocation_time not an INT for cert " + certSerialID + ".")
-				level.Warn(logger).Log("err", err)
-				continue
-			}
-			if revocation_time != 0 {
-				status = "revoked"
-			}
+					pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
+					hasExpired := cert.NotAfter.Before(time.Now())
+					status := "issued"
+					if hasExpired {
+						status = "expired"
+					}
+					revocation_time, err := certResponse.Data["revocation_time"].(json.Number).Int64()
+					if err != nil {
+						err = errors.New("revocation_time not an INT for cert " + certSerialID + ".")
+						level.Warn(logger).Log("err", err)
+						continue
+					}
+					if revocation_time != 0 {
+						status = "revoked"
+					}
 
-			Certs.Certs = append(Certs.Certs, secrets.Cert{
-				SerialNumber: insertNth(toHexInt(cert.SerialNumber), 2),
-				Status:       status,
-				Name:         caName,
-				CertContent: secrets.CertContent{
-					CerificateBase64: base64.StdEncoding.EncodeToString([]byte(certResponse.Data["certificate"].(string))),
-					PublicKeyBase64:  base64.StdEncoding.EncodeToString([]byte(pubKey)),
-				},
-				Subject: secrets.Subject{
-					C:  strings.Join(cert.Subject.Country, " "),
-					ST: strings.Join(cert.Subject.Province, " "),
-					L:  strings.Join(cert.Subject.Locality, " "),
-					O:  strings.Join(cert.Subject.Organization, " "),
-					OU: strings.Join(cert.Subject.OrganizationalUnit, " "),
-					CN: cert.Subject.CommonName,
-				},
-				KeyMetadata: secrets.KeyInfo{
-					KeyType:     keyType,
-					KeyBits:     keyBits,
-					KeyStrength: keyStrength,
-				},
-				ValidFrom: cert.NotBefore.String(),
-				ValidTo:   cert.NotAfter.String(),
-			})
+					Certs.Certs = append(Certs.Certs, secrets.Cert{
+						SerialNumber: InsertNth(ToHexInt(cert.SerialNumber), 2),
+						Status:       status,
+						Name:         caName,
+						CertContent: secrets.CertContent{
+							CerificateBase64: base64.StdEncoding.EncodeToString([]byte(certResponse.Data["certificate"].(string))),
+							PublicKeyBase64:  base64.StdEncoding.EncodeToString([]byte(pubKey)),
+						},
+						Subject: secrets.Subject{
+							C:  strings.Join(cert.Subject.Country, " "),
+							ST: strings.Join(cert.Subject.Province, " "),
+							L:  strings.Join(cert.Subject.Locality, " "),
+							O:  strings.Join(cert.Subject.Organization, " "),
+							OU: strings.Join(cert.Subject.OrganizationalUnit, " "),
+							CN: cert.Subject.CommonName,
+						},
+						KeyMetadata: secrets.KeyInfo{
+							KeyType:     keyType,
+							KeyBits:     keyBits,
+							KeyStrength: keyStrength,
+						},
+						ValidFrom: cert.NotBefore.String(),
+						ValidTo:   cert.NotAfter.String(),
+					})
+				}
+			}
 		}
 	}
 	return Certs, nil
 
 }
 
-func (vs *vaultSecrets) DeleteCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) error {
-	logger := ctx.Value(lamassuapi.LamassuLoggerContextkey).(log.Logger)
+func (vs *VaultSecrets) DeleteCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) error {
+	logger := ctx.Value("LamassuLogger").(log.Logger)
 
 	options := map[string]interface{}{
 		"serial_number": serialNumber,
@@ -599,12 +625,13 @@ func (vs *vaultSecrets) DeleteCert(ctx context.Context, caType secrets.CAType, c
 
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not revoke cert with serial number "+serialNumber+" from CA "+caName)
+		err = errors.New("Could not revoke cert from CA")
 		return err
 	}
 	return nil
 }
 
-func (vs *vaultSecrets) hasEnrollerRole(ctx context.Context, caType secrets.CAType, caName string) bool {
+func (vs *VaultSecrets) hasEnrollerRole(ctx context.Context, caType secrets.CAType, caName string) bool {
 	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/roles/enroller")
 	data, _ := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/roles/enroller")
 	span.Finish()
@@ -616,7 +643,7 @@ func (vs *vaultSecrets) hasEnrollerRole(ctx context.Context, caType secrets.CATy
 	}
 }
 
-func insertNth(s string, n int) string {
+func InsertNth(s string, n int) string {
 	if len(s)%2 != 0 {
 		s = "0" + s
 	}
@@ -632,7 +659,7 @@ func insertNth(s string, n int) string {
 	return buffer.String()
 }
 
-func toHexInt(n *big.Int) string {
+func ToHexInt(n *big.Int) string {
 	return fmt.Sprintf("%x", n) // or %X or upper case
 }
 

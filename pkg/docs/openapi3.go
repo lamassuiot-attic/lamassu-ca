@@ -131,6 +131,14 @@ func NewOpenAPI3(config configs.Config) openapi3.T {
 					WithProperty("csr", openapi3.NewStringSchema()),
 				),
 		},
+		"postCSRRequest": &openapi3.RequestBodyRef{
+			Value: openapi3.NewRequestBody().
+				WithDescription("Request used for getting all a certificates").
+				WithRequired(true).
+				WithJSONSchema(openapi3.NewSchema().
+					WithProperty("csr", openapi3.NewStringSchema()),
+				),
+		},
 	}
 
 	openapiSpec.Components.Responses = openapi3.Responses{
@@ -314,7 +322,7 @@ func NewOpenAPI3(config configs.Config) openapi3.T {
 					},
 				},
 				RequestBody: &openapi3.RequestBodyRef{
-					Ref: "#/components/requestBodies/ImportCARequest",
+					Ref: "#/components/requestBodies/postCSRRequest",
 				},
 				Responses: openapi3.Responses{
 					"400": &openapi3.ResponseRef{

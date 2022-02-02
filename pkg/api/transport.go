@@ -47,7 +47,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, otTracer stdopentracing.Trace
 	r := mux.NewRouter()
 	e := MakeServerEndpoints(s, otTracer)
 	options := []httptransport.ServerOption{
-		httptransport.ServerBefore(jwt.HTTPToContext()),
+		httptransport.ServerBefore(HTTPToContext(logger)),
 		httptransport.ServerErrorHandler(transport.NewLogErrorHandler(logger)),
 		httptransport.ServerErrorEncoder(encodeError),
 		httptransport.ServerBefore(jwt.HTTPToContext()),
@@ -143,7 +143,7 @@ func MakeHTTPHandler(s Service, logger log.Logger, otTracer stdopentracing.Trace
 		encodeResponse,
 		append(
 			options,
-			httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "DeleteCert", logger)),
+			httptransport.ServerBefore(opentracing.HTTPToContext(otTracer, "SignCSR", logger)),
 			httptransport.ServerBefore(HTTPToContext(logger)),
 		)...,
 	))

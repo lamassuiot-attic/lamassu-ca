@@ -6,6 +6,7 @@ require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.0 // indirect
 	github.com/getkin/kin-openapi v0.88.0
 	github.com/go-kit/kit v0.10.0
+	github.com/go-kit/log v0.2.0 // indirect
 	github.com/go-openapi/runtime v0.21.0 // indirect
 	github.com/go-openapi/swag v0.19.15 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
@@ -25,6 +26,7 @@ require (
 	github.com/prometheus/client_golang v1.8.0
 	github.com/rogpeppe/go-internal v1.8.0 // indirect
 	github.com/streadway/amqp v1.0.0
+	github.com/stretchr/testify v1.7.0 // indirect
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519 // indirect

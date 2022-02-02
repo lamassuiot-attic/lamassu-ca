@@ -1,12 +1,10 @@
 package mocks
 
 import (
-	"crypto/ecdsa"
-	"crypto/rsa"
+	"context"
 	"crypto/x509"
-	"encoding/pem"
 	"errors"
-	"net"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -19,11 +17,22 @@ import (
 	"github.com/hashicorp/vault/vault"
 )
 
-type vaultSecretsMock struct {
-	client *api.Client
+type VaultSecretsMock struct {
+	Client  *api.Client
+	secrets secrets.Secrets
 }
 
-func NewVaultSecretsMock(t *testing.T) (secrets.Secrets, net.Listener, error) {
+var (
+	//Client
+	errInvalidCA = errors.New("invalid CA, does not exist")
+
+	//Server
+	ErrGetCAs    = errors.New("unable to get CAs from secret engine")
+	errGetCAInfo = errors.New("unable to get CA information from secret engine")
+	errDeleteCA  = errors.New("unable to delete CA from secret engine")
+)
+
+func NewVaultSecretsMock(t *testing.T) (*api.Client, error) {
 	t.Helper()
 
 	coreConfig := &vault.CoreConfig{
@@ -35,14 +44,14 @@ func NewVaultSecretsMock(t *testing.T) (secrets.Secrets, net.Listener, error) {
 	core, keyShares, rootToken := vault.TestCoreUnsealedWithConfig(t, coreConfig)
 	_ = keyShares
 
-	ln, addr := http.TestServer(t, core)
+	_, addr := http.TestServer(t, core)
 
 	conf := api.DefaultConfig()
 	conf.Address = strings.ReplaceAll(conf.Address, "https://127.0.0.1:8200", addr)
 
 	client, err := api.NewClient(conf)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	client.SetToken(rootToken)
 
@@ -54,7 +63,7 @@ func NewVaultSecretsMock(t *testing.T) (secrets.Secrets, net.Listener, error) {
 		},
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	//Setup CA Role
@@ -64,7 +73,7 @@ func NewVaultSecretsMock(t *testing.T) (secrets.Secrets, net.Listener, error) {
 		"key_type":       "any",
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	//Setup CA internal root certificate
@@ -79,27 +88,32 @@ func NewVaultSecretsMock(t *testing.T) (secrets.Secrets, net.Listener, error) {
 		"locality":     "Arrasate",
 	})
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return &vaultSecretsMock{client: client}, ln, nil
+	return client, err
 }
 
-func (vm *vaultSecretsMock) GetCAs() (secrets.CAs, error) {
+//TODO:
+func (vm *VaultSecretsMock) CreateCA(ctx context.Context, caType secrets.CAType, caName string, ca secrets.Cert) (secrets.Cert, error) {
+	return secrets.Cert{}, nil
+}
+
+/*func (vm *VaultSecretsMock) GetCAs() (secrets.Certs, error) {
 	resp, err := vm.client.Sys().ListMounts()
 	if err != nil {
-		return secrets.CAs{}, err
+		return secrets.Certs{}, err
 	}
-	var CAs []secrets.CA
+	var CAs []secrets.Certs
 	for mount, mountOutput := range resp {
 		if mountOutput.Type == "pki" {
-			CAs = append(CAs, secrets.CA{Name: strings.TrimSuffix(mount, "/")})
+			CAs = append(CAs, secrets.Certs{Name: strings.TrimSuffix(mount, "/")})
 		}
 	}
-	return secrets.CAs{CAs: CAs}, nil
-}
+	return secrets.Certs{Certs: CAs}, nil
+}*/
 
-func (vm *vaultSecretsMock) GetCAInfo(CA string) (secrets.CAInfo, error) {
+/*func (vm *VaultSecretsMock) GetCAInfo(CA string) (secrets.CAInfo, error) {
 	caPath := CA + "/cert/ca"
 	resp, err := vm.client.Logical().Read(caPath)
 	if resp == nil {
@@ -140,13 +154,72 @@ func (vm *vaultSecretsMock) GetCAInfo(CA string) (secrets.CAInfo, error) {
 	}
 
 	return CAInfo, nil
-}
+}*/
 
-func (vm *vaultSecretsMock) DeleteCA(CA string) error {
-	deletePath := CA + "/root"
-	_, err := vm.client.Logical().Delete(deletePath)
+func (vm *VaultSecretsMock) DeleteCA(ctx context.Context, caType secrets.CAType, caName string) error {
+	deletePath := caName + "/root"
+	_, err := vm.Client.Logical().Delete(deletePath)
 	if err != nil {
 		return err
 	}
 	return nil
+}
+
+func (vm *VaultSecretsMock) DeleteCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) error {
+	err := vm.secrets.DeleteCA(ctx, caType, caName)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+func (vm *VaultSecretsMock) GetCA(ctx context.Context, caType secrets.CAType, caName string) (secrets.Cert, error) {
+	return secrets.Cert{}, nil
+}
+
+func (vm *VaultSecretsMock) GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error) {
+	fmt.Println("111")
+	CAs, err := vm.secrets.GetCAs(ctx, caType)
+	fmt.Println("222")
+	if err != nil {
+		return secrets.Certs{}, ErrGetCAs
+	}
+
+	return CAs, nil
+
+}
+
+func (vm *VaultSecretsMock) GetCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (secrets.Cert, error) {
+	certs, err := vm.secrets.GetCert(ctx, caType, caName, serialNumber)
+	if err != nil {
+		return secrets.Cert{}, err
+	}
+	return certs, nil
+}
+
+func (vm *VaultSecretsMock) ImportCA(ctx context.Context, caType secrets.CAType, caName string, caImport secrets.CAImport) error {
+	err := vm.secrets.ImportCA(ctx, caType, caName, caImport)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (vm *VaultSecretsMock) GetIssuedCerts(ctx context.Context, caType secrets.CAType, caName string) (secrets.Certs, error) {
+	certs, err := vm.secrets.GetIssuedCerts(ctx, caType, caName)
+	if err != nil {
+		return secrets.Certs{}, err
+	}
+	return certs, nil
+}
+
+func (vm *VaultSecretsMock) GetSecretProviderName(ctx context.Context) string {
+	return vm.secrets.GetSecretProviderName(ctx)
+}
+
+func (vm *VaultSecretsMock) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr *x509.CertificateRequest) (string, error) {
+	cert, err := vm.secrets.SignCertificate(ctx, caType, caName, csr)
+	if err != nil {
+		return "", err
+	}
+	return cert, nil
 }

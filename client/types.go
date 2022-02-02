@@ -14,13 +14,15 @@ type Cert struct {
 	// The name/alias of the CA
 	// required: true
 	// example: Lamassu-CA
-	Name string `json:"name,omitempty"`
+	CAName string `json:"ca_name,omitempty"`
 
 	KeyMetadata KeyInfo `json:"key_metadata"`
 
 	Subject Subject `json:"subject"`
 
 	CertContent CertContent `json:"certificate"`
+
+	Cert string `json:"crt"`
 
 	// Expiration period of the new emmited CA
 	// required: true

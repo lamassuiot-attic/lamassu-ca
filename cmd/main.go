@@ -2,8 +2,10 @@ package main
 
 import (
 	"crypto/tls"
+	"crypto/x509"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"os/signal"
@@ -46,13 +48,6 @@ func main() {
 	}
 	level.Info(logger).Log("msg", "Environment configuration values loaded")
 
-	secretsVault, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultPkiCaPath, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, cfg.VaultUnsealKeysFile, cfg.OcspUrl, logger)
-	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not start connection with Vault Secret Engine")
-		os.Exit(1)
-	}
-	level.Info(logger).Log("msg", "Connection established with secret engine")
-
 	jcfg, err := jaegercfg.FromEnv()
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not load Jaeger configuration values fron environment")
@@ -72,9 +67,26 @@ func main() {
 	defer closer.Close()
 	level.Info(logger).Log("msg", "Jaeger tracer started")
 
+	secretsVault, err := vault.NewVaultSecrets(cfg.VaultAddress, cfg.VaultPkiCaPath, cfg.VaultRoleID, cfg.VaultSecretID, cfg.VaultCA, cfg.VaultUnsealKeysFile, cfg.OcspUrl, logger)
+	if err != nil {
+		level.Error(logger).Log("err", err, "msg", "Could not start connection with Vault Secret Engine")
+		os.Exit(1)
+	}
+	level.Info(logger).Log("msg", "Connection established with secret engine")
+
 	fieldKeys := []string{"method", "error"}
 
-	amqpConn, err := amqp.Dial("amqp://guest:guest@" + cfg.AmqpIP + ":" + cfg.AmqpPort + "")
+	amq_cfg := new(tls.Config)
+	amq_cfg.RootCAs = x509.NewCertPool()
+
+	if ca, err := ioutil.ReadFile(cfg.AmqpServerCACertFile); err == nil {
+		amq_cfg.RootCAs.AppendCertsFromPEM(ca)
+	}
+	if cert, err := tls.LoadX509KeyPair(cfg.CertFile, cfg.KeyFile); err == nil {
+		amq_cfg.Certificates = append(amq_cfg.Certificates, cert)
+	}
+
+	amqpConn, err := amqp.DialTLS("amqps://"+cfg.AmqpIP+":"+cfg.AmqpPort+"", amq_cfg)
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Failed to connect to AMQP")
 		os.Exit(1)
@@ -134,15 +146,13 @@ func main() {
 
 	mux := http.NewServeMux()
 
-	http.Handle("/", accessControl(mux))
-	mux.Handle("/", http.FileServer(http.Dir("./docs")))
-	mux.Handle("/v1/", api.MakeHTTPHandler(s, log.With(logger, "component", "HTTPS"), tracer))
-	mux.Handle("/v1/docs", middleware.SwaggerUI(middleware.SwaggerUIOpts{
-		BasePath: "/v1",
-		SpecURL:  path.Join("/openapiv3.json"),
-		Path:     "docs",
+	http.Handle("/", accessControl(api.MakeHTTPHandler(s, log.With(logger, "component", "HTTPS"), tracer)))
+	http.Handle("/docs", middleware.SwaggerUI(middleware.SwaggerUIOpts{
+		Path:    "/docs",
+		SpecURL: "docs/openapiv3.json",
 	}, mux))
-	mux.Handle("/metrics", promhttp.Handler())
+	http.Handle("/docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs"))))
+	http.Handle("/metrics", promhttp.Handler())
 
 	errs := make(chan error)
 	go func() {

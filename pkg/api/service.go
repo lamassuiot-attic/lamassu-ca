@@ -36,7 +36,11 @@ var (
 	//Server
 	ErrGetCAs    = errors.New("unable to get CAs from secret engine")
 	errGetCAInfo = errors.New("unable to get CA information from secret engine")
-	errDeleteCA  = errors.New("unable to delete CA from secret engine")
+	//ErrDeleteCA         = errors.New("unable to delete CA from secret engine")
+	ErrEmptyCA          = errors.New("CA name not defined")
+	ErrEmtySerialNumber = errors.New("Certificate without Serial Number")
+	ErrDeleteCA         = errors.New("Could not delete certificate from Vault")
+	ErrDeleteCert       = errors.New("Could not revoke cert from CA")
 )
 
 func NewCAService(logger log.Logger, secrets secrets.Secrets) Service {

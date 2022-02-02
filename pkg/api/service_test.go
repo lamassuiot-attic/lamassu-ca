@@ -112,6 +112,7 @@ func TestImportCA(t *testing.T) {
 		ret    error
 	}{
 		{"Correct CA", "testImport", caImportC, nil},
+		{"Incorrect CA", "testImport", caImportC, ErrImportCA},
 	}
 	for _, tc := range testCases {
 		t.Run(fmt.Sprintf("Testing %s", tc.name), func(t *testing.T) {
@@ -123,9 +124,12 @@ func TestImportCA(t *testing.T) {
 
 			srv.SignCertificate(ctx, caType, tc.caName, *csr)
 
-			if tc.ret != err {
-				t.Errorf("Got result is %s; want %s", err, tc.ret)
+			if err != nil {
+				if err.Error() != tc.ret.Error() {
+					t.Errorf("Got result is %s; want %s", err, tc.ret)
+				}
 			}
+
 		})
 	}
 }
@@ -239,7 +243,6 @@ func TestGetCert(t *testing.T) {
 			}
 		})
 	}
-	t.Log("TestGetCert")
 }
 
 func TestSignCertificate(t *testing.T) {

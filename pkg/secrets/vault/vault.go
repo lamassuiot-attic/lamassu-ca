@@ -347,7 +347,7 @@ func (vs *VaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAN
 func (vs *VaultSecrets) ImportCA(ctx context.Context, caType secrets.CAType, CAName string, caImport secrets.CAImport) error {
 	err := vs.initPkiSecret(ctx, caType, CAName, caImport.TTL)
 	if err != nil {
-		return err
+		return errors.New("Could no create CA. Already exists")
 	}
 	options := map[string]interface{}{
 		"pem_bundle": caImport.PEMBundle,

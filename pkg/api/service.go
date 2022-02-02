@@ -41,6 +41,7 @@ var (
 	ErrEmtySerialNumber = errors.New("Certificate without Serial Number")
 	ErrDeleteCA         = errors.New("Could not delete certificate from Vault")
 	ErrDeleteCert       = errors.New("Could not revoke cert from CA")
+	ErrImportCA         = errors.New("Could no create CA. Already exists")
 )
 
 func NewCAService(logger log.Logger, secrets secrets.Secrets) Service {

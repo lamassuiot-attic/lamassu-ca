@@ -38,7 +38,8 @@ const (
 func HTTPToContext(logger log.Logger) httptransport.RequestFunc {
 	return func(ctx context.Context, req *http.Request) context.Context {
 		// Try to join to a trace propagated in `req`.
-		logger := log.With(logger, "span_id", stdopentracing.SpanFromContext(ctx))
+		span := stdopentracing.SpanFromContext(ctx)
+		logger := log.With(logger, "span_id", span)
 		return context.WithValue(ctx, LamassuLoggerContextkey, logger)
 	}
 }

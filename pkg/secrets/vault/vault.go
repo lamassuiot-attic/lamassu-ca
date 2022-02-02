@@ -263,7 +263,9 @@ func (vs *VaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName
 }
 
 func (vs *VaultSecrets) GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error) {
-	// logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+	//logger := log.With(vs.logger, "trace_id", opentracing.SpanFromContext(ctx))
+	test := ctx.Value("LamassuLogger")
+	fmt.Print(test)
 	logger := ctx.Value("LamassuLogger").(log.Logger)
 
 	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api GET /v1/sys/mounts")

@@ -29,18 +29,12 @@ var (
 	errSerial = errors.New("Serial Number not provided")
 )
 
-type contextKey string
-
-const (
-	LamassuLoggerContextkey contextKey = "LamassuLogger"
-)
-
 func HTTPToContext(logger log.Logger) httptransport.RequestFunc {
 	return func(ctx context.Context, req *http.Request) context.Context {
 		// Try to join to a trace propagated in `req`.
 		span := stdopentracing.SpanFromContext(ctx)
 		logger := log.With(logger, "span_id", span)
-		return context.WithValue(ctx, LamassuLoggerContextkey, logger)
+		return context.WithValue(ctx, "LamassuLogger", logger)
 	}
 }
 
@@ -296,7 +290,8 @@ func decodeSignCertificateRequest(ctx context.Context, r *http.Request) (request
 	if !ok {
 		return nil, errCAType
 	}
-
+	span := r.Header.Get("uber-trace-id")
+	ctx = context.WithValue(ctx, "span_id", span)
 	caType, err := secrets.ParseCAType(caTypeString)
 	if err != nil {
 		return nil, err

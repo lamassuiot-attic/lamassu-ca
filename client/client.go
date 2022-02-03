@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"encoding/pem"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -101,14 +102,15 @@ func (c *LamassuCaClientConfig) SignCertificateRequest(ctx context.Context, sign
 		"csr": base64CsrContent,
 	}
 	span := opentracing.StartSpan("lamassu-ca: Sign Certificate request", opentracing.ChildOf(parentSpan.Context()))
-
+	span_id := fmt.Sprintf("%s", span)
+	fmt.Printf("span: %s\n", span_id)
 	req, err := c.client.NewRequest("POST", "v1/"+caType+"/"+signingCaName+"/sign", body)
+	req.Header.Set("uber-trace-id", span_id)
 	if err != nil {
 		span.Finish()
 		level.Error(c.logger).Log("err", err, "msg", "Could not create Sign Certificate request")
 		return nil, err
 	}
-
 	respBody, _, err := c.client.Do(req)
 	span.Finish()
 	if err != nil {

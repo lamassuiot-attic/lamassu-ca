@@ -185,8 +185,9 @@ func (vs *VaultSecrets) SignCertificate(ctx context.Context, caType secrets.CATy
 		"csr":         string(csrBytes),
 		"common_name": csr.Subject.CommonName,
 	}
-
-	span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller")
+	parentSpan := opentracing.SpanFromContext(ctx)
+	//span, _ := opentracing.StartSpanFromContext(ctx, "lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller")
+	span := opentracing.StartSpan("lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller", opentracing.ChildOf(parentSpan.Context()))
 	data, err := vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller", options)
 	span.Finish()
 	if err != nil {

@@ -2,10 +2,10 @@ package docs
 
 import (
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/lamassuiot/lamassu-ca/pkg/configs"
+	"github.com/lamassuiot/lamassu-ca/pkg/config"
 )
 
-func NewOpenAPI3(config configs.Config) openapi3.T {
+func NewOpenAPI3(config config.Config) openapi3.T {
 
 	arrayOf := func(items *openapi3.SchemaRef) *openapi3.SchemaRef {
 		return &openapi3.SchemaRef{Value: &openapi3.Schema{Type: "array", Items: items}}

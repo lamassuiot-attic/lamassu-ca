@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/pem"
 	"fmt"
-	"os"
+	"strconv"
 	"testing"
 
 	"github.com/go-kit/log"
@@ -15,9 +15,6 @@ import (
 	"github.com/lamassuiot/lamassu-ca/pkg/mocks"
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets"
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets/vault"
-	"github.com/opentracing/opentracing-go"
-	jaegercfg "github.com/uber/jaeger-client-go/config"
-	jaegerlog "github.com/uber/jaeger-client-go/log"
 )
 
 type serviceSetUp struct {
@@ -26,20 +23,20 @@ type serviceSetUp struct {
 
 func TestHealth(t *testing.T) {
 	srv, ctx := setup(t)
-
-	testCases := []struct {
+	type testCasesHealth struct {
 		name string
 		ret  bool
-	}{
+	}
+	cases := []testCasesHealth{
 		{"Correct", true},
 	}
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("Testing %s", tc.name), func(t *testing.T) {
-			out := srv.Health(ctx)
-			if tc.ret != out {
-				t.Errorf("Health not working properly")
-			}
-		})
+	for _, tc := range cases {
+
+		out := srv.Health(ctx)
+		if tc.ret != out {
+			t.Errorf("Expected '%s', but got '%s'", strconv.FormatBool(tc.ret), strconv.FormatBool(out))
+		}
+
 	}
 }
 
@@ -171,6 +168,58 @@ func TestGetCAs(t *testing.T) {
 						if tc.res.Certs[i] != cas.Certs[i] {
 							t.Errorf("CA has not the same certs than expected")
 						}
+					}
+				}
+			}
+		})
+	}
+}
+
+func TestGetIssuedCerts(t *testing.T) {
+	srv, ctx := setup(t)
+
+	caType, _ := secrets.ParseCAType("pki")
+	certReq := testCA("testDCMock")
+	newCA, _ := srv.CreateCA(ctx, caType, "testDCMock", certReq)
+
+	data, _ := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2pqQ0NBWFlDQVFBd1NURUxNQWtHQTFVRUJoTUNSVk14Q2pBSUJnTlZCQWdNQVVFeENqQUlCZ05WQkFjTQpBVUV4Q2pBSUJnTlZCQW9NQVVFeENqQUlCZ05WQkFzTUFVRXhDakFJQmdOVkJBTU1BVUV3Z2dFaU1BMEdDU3FHClNJYjNEUUVCQVFVQUE0SUJEd0F3Z2dFS0FvSUJBUURDaFUxRFROckI0a2JTaVpjQjBMaHhUQ2dPYXlQUUU0VzkKT2N1MFBpczBybUliZnM2T2pERk5qcUY5dlhOcFlUSGhtL3FaTVZTWEZYZjM4VDBJS3NmU2lCYm5aa0pYWWc0NgptY2tLY1VkQ0VsUy8wK3RYaDh6Slo3QXNsV0Z2eXFLek5nUVJCcnhJQ0RVOTdVWXJ6eWk3ajVOSUJ2OHJvRld4CjVJOUNXUEpEQ00vRUFHMHVldjZQNVQzN2dKUzlFcnZXeERmWDVJL3hxRnZEQnpsV0VqbytFZ1piM3daSEt5d3QKMUVaVHBET1NKY29VeXZnWmFwUFF6U2JDZVdUL3ZlRW8rem5pUlk5SThFRlJhNm9DWDNCbVc4Snh2V2FSOVd3YQpnVUZ4cFM5OHdJN0JwSVJUeFgwdk9oMXZlUlBjWmRsVmFMZlJQb1BuV1BkdHAwckFDdXB6QWdNQkFBR2dBREFOCkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQUllbTV5YnpVR1VvSk9yUjc1bW5COGZNUmVBWi9NalRVamYwem0xQjQKeGo4U1FMYTI2djU2ZkxOYkZ6NTlaaDlJa0J2U1AyNWNRTm5JU1lZT3RxejZLakJzcEVVQnNKaFVKcTNRNXpybgo3WVVoZnN2NWIzN0h2Y3h6akpvWW05NlZiU2FwQk5RWStGbjJ3R3NhZ1Zucktoalk0REdMM0lKQmlicmJvcEg2ClJwaFJRMWwyeXcwbUEybG9jK0hEZ1VwVTR4bXRpangvbHZmdHkzYVdwelBmV3pOWFRVYkEwNTFGY3hEQWh0SlkKbEd5WUxKSk1XQ08rL3NlUkxLSWFrZTFNeFR5Nzd0WVJ3MUNkVkJWWWFIbU8xM2k3ek8zYWVxdzloaGNHcWhyUQpXSWlYQ2lRdm9GN25oSmRvOEdmbkV5L1hKWk54LzQzbFVxUFcrekNhaWlsa2h3PT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0t")
+	block, _ := pem.Decode([]byte(data))
+	csr, _ := x509.ParseCertificateRequest(block.Bytes)
+
+	srv.SignCertificate(ctx, caType, newCA.Name, *csr)
+	var CAs secrets.Certs
+	var caList []secrets.Cert
+	caList = append(caList, newCA)
+	CAs = secrets.Certs{Certs: caList}
+
+	var CAEmptys secrets.Certs
+
+	testCases := []struct {
+		name string
+		res  secrets.Certs
+		ret  error
+	}{
+		{"Incorrect", CAEmptys, ErrGetCAs},
+		{"Correct", CAs, nil},
+	}
+	for _, tc := range testCases {
+
+		t.Run(fmt.Sprintf("Testing %s", tc.name), func(t *testing.T) {
+
+			cas, err := srv.GetIssuedCerts(ctx, caType, newCA.Name)
+			if err != nil {
+				if tc.ret != err {
+					t.Errorf("CA API returned error: %s", err)
+				}
+				if len(tc.res.Certs) != len(cas.Certs) {
+					t.Errorf("CA has not the same number of certs than expected")
+				}
+				if len(tc.res.Certs) > 0 {
+					for i := 0; i < len(tc.res.Certs); i++ {
+						if tc.res.Certs[i] != cas.Certs[i] {
+							t.Errorf("CA has not the same certs than expected")
+						}
+
 					}
 				}
 			}
@@ -322,31 +371,6 @@ func TestDeleteCert(t *testing.T) {
 	}
 }
 
-func TestGetIssuedCerts(t *testing.T) {
-	srv, ctx := setup(t)
-
-	caType, _ := secrets.ParseCAType("pki")
-	certReq := testCA("testDCMock")
-	newCA, err := srv.CreateCA(ctx, caType, "testDCMock", certReq)
-
-	data, _ := base64.StdEncoding.DecodeString("LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2pqQ0NBWFlDQVFBd1NURUxNQWtHQTFVRUJoTUNSVk14Q2pBSUJnTlZCQWdNQVVFeENqQUlCZ05WQkFjTQpBVUV4Q2pBSUJnTlZCQW9NQVVFeENqQUlCZ05WQkFzTUFVRXhDakFJQmdOVkJBTU1BVUV3Z2dFaU1BMEdDU3FHClNJYjNEUUVCQVFVQUE0SUJEd0F3Z2dFS0FvSUJBUURDaFUxRFROckI0a2JTaVpjQjBMaHhUQ2dPYXlQUUU0VzkKT2N1MFBpczBybUliZnM2T2pERk5qcUY5dlhOcFlUSGhtL3FaTVZTWEZYZjM4VDBJS3NmU2lCYm5aa0pYWWc0NgptY2tLY1VkQ0VsUy8wK3RYaDh6Slo3QXNsV0Z2eXFLek5nUVJCcnhJQ0RVOTdVWXJ6eWk3ajVOSUJ2OHJvRld4CjVJOUNXUEpEQ00vRUFHMHVldjZQNVQzN2dKUzlFcnZXeERmWDVJL3hxRnZEQnpsV0VqbytFZ1piM3daSEt5d3QKMUVaVHBET1NKY29VeXZnWmFwUFF6U2JDZVdUL3ZlRW8rem5pUlk5SThFRlJhNm9DWDNCbVc4Snh2V2FSOVd3YQpnVUZ4cFM5OHdJN0JwSVJUeFgwdk9oMXZlUlBjWmRsVmFMZlJQb1BuV1BkdHAwckFDdXB6QWdNQkFBR2dBREFOCkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQUllbTV5YnpVR1VvSk9yUjc1bW5COGZNUmVBWi9NalRVamYwem0xQjQKeGo4U1FMYTI2djU2ZkxOYkZ6NTlaaDlJa0J2U1AyNWNRTm5JU1lZT3RxejZLakJzcEVVQnNKaFVKcTNRNXpybgo3WVVoZnN2NWIzN0h2Y3h6akpvWW05NlZiU2FwQk5RWStGbjJ3R3NhZ1Zucktoalk0REdMM0lKQmlicmJvcEg2ClJwaFJRMWwyeXcwbUEybG9jK0hEZ1VwVTR4bXRpangvbHZmdHkzYVdwelBmV3pOWFRVYkEwNTFGY3hEQWh0SlkKbEd5WUxKSk1XQ08rL3NlUkxLSWFrZTFNeFR5Nzd0WVJ3MUNkVkJWWWFIbU8xM2k3ek8zYWVxdzloaGNHcWhyUQpXSWlYQ2lRdm9GN25oSmRvOEdmbkV5L1hKWk54LzQzbFVxUFcrekNhaWlsa2h3PT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0t")
-	block, _ := pem.Decode([]byte(data))
-	csr, _ := x509.ParseCertificateRequest(block.Bytes)
-
-	a, err := srv.SignCertificate(ctx, caType, newCA.Name, *csr)
-	t.Log(a)
-	cas, err := srv.GetIssuedCerts(ctx, caType, newCA.Name)
-	if err != nil {
-		t.Errorf("CA API returned error: %s", err)
-	}
-	if len(cas.Certs) <= 0 {
-		t.Errorf("Not CA certificates returned from CA API")
-	}
-	if len(cas.Certs) > 1 {
-		t.Errorf("CA API expected to return one certificate, but %d certificates were returned", len(cas.Certs))
-	}
-}
-
 func setup(t *testing.T) (Service, context.Context) {
 	t.Helper()
 
@@ -355,7 +379,7 @@ func setup(t *testing.T) (Service, context.Context) {
 	ctx := context.Background()
 	ctx = context.WithValue(ctx, "LamassuLogger", logger)
 
-	jcfg, err := jaegercfg.FromEnv()
+	/*jcfg, err := jaegercfg.FromEnv()
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not load Jaeger configuration values fron environment")
 		os.Exit(1)
@@ -371,7 +395,7 @@ func setup(t *testing.T) (Service, context.Context) {
 		level.Error(logger).Log("err", err, "msg", "Could not start Jaeger tracer")
 		os.Exit(1)
 	}
-	defer closer.Close()
+	defer closer.Close()*/
 	level.Info(logger).Log("msg", "Jaeger tracer started")
 
 	vaultClient, err := mocks.NewVaultSecretsMock(t)

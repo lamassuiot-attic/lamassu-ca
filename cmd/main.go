@@ -18,7 +18,7 @@ import (
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/lamassuiot/lamassu-ca/pkg/api"
-	"github.com/lamassuiot/lamassu-ca/pkg/configs"
+	"github.com/lamassuiot/lamassu-ca/pkg/config"
 	"github.com/lamassuiot/lamassu-ca/pkg/docs"
 	"github.com/lamassuiot/lamassu-ca/pkg/secrets/vault"
 	"github.com/lamassuiot/lamassu-ca/pkg/utils"
@@ -41,7 +41,7 @@ func main() {
 
 	/*********************************************************************/
 
-	cfg, err := configs.NewConfig("")
+	cfg, err := config.NewConfig("")
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not read environment configuration values")
 		os.Exit(1)

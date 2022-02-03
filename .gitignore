@@ -4,3 +4,4 @@ no-git/*
 no-git/**
 no-git/
 nogit
+cover.*

@@ -66,14 +66,15 @@ func NewLamassuCaClient(lamassuCaUrl string, lamassuCaCert string, clientCertFil
 func (c *LamassuCaClientConfig) GetCAs(ctx context.Context, caType string) (Certs, error) {
 	c.logger = ctx.Value("LamassuLogger").(log.Logger)
 	parentSpan := opentracing.SpanFromContext(ctx)
+
 	span := opentracing.StartSpan("lamassu-ca: GetCAs request", opentracing.ChildOf(parentSpan.Context()))
+	span_id := fmt.Sprintf("%s", span)
 	req, err := c.client.NewRequest("GET", "v1/"+caType, nil)
 	if err != nil {
-		span.Finish()
 		level.Error(c.logger).Log("err", err, "msg", "Could not create GetCAs request")
 		return Certs{}, err
 	}
-
+	req.Header.Set("uber-trace-id", span_id)
 	respBody, _, err := c.client.Do(req)
 	span.Finish()
 	if err != nil {
@@ -95,7 +96,9 @@ func (c *LamassuCaClientConfig) GetCAs(ctx context.Context, caType string) (Cert
 
 func (c *LamassuCaClientConfig) SignCertificateRequest(ctx context.Context, signingCaName string, csr *x509.CertificateRequest, caType string) (*x509.Certificate, error) {
 	c.logger = ctx.Value("LamassuLogger").(log.Logger)
+
 	parentSpan := opentracing.SpanFromContext(ctx)
+
 	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
 	base64CsrContent := base64.StdEncoding.EncodeToString(csrBytes)
 	body := map[string]interface{}{
@@ -103,11 +106,11 @@ func (c *LamassuCaClientConfig) SignCertificateRequest(ctx context.Context, sign
 	}
 	span := opentracing.StartSpan("lamassu-ca: Sign Certificate request", opentracing.ChildOf(parentSpan.Context()))
 	span_id := fmt.Sprintf("%s", span)
-	fmt.Printf("span: %s\n", span_id)
+
 	req, err := c.client.NewRequest("POST", "v1/"+caType+"/"+signingCaName+"/sign", body)
 	req.Header.Set("uber-trace-id", span_id)
+
 	if err != nil {
-		span.Finish()
 		level.Error(c.logger).Log("err", err, "msg", "Could not create Sign Certificate request")
 		return nil, err
 	}
@@ -133,8 +136,11 @@ func (c *LamassuCaClientConfig) SignCertificateRequest(ctx context.Context, sign
 func (c *LamassuCaClientConfig) RevokeCert(ctx context.Context, IssuerName string, serialNumberToRevoke string, caType string) error {
 	c.logger = ctx.Value("LamassuLogger").(log.Logger)
 	parentSpan := opentracing.SpanFromContext(ctx)
+
 	span := opentracing.StartSpan("lamassu-ca: Revoke Certificate request", opentracing.ChildOf(parentSpan.Context()))
+	span_id := fmt.Sprintf("%s", span)
 	req, err := c.client.NewRequest("DELETE", "v1/"+caType+"/"+IssuerName+"/cert/"+serialNumberToRevoke, nil)
+	req.Header.Set("uber-trace-id", span_id)
 	if err != nil {
 		span.Finish()
 		level.Error(c.logger).Log("err", err, "msg", "Could not create Revoke Certificate request")
@@ -153,9 +159,11 @@ func (c *LamassuCaClientConfig) RevokeCert(ctx context.Context, IssuerName strin
 func (c *LamassuCaClientConfig) GetCert(ctx context.Context, IssuerName string, SerialNumber string, caType string) (Cert, error) {
 	c.logger = ctx.Value("LamassuLogger").(log.Logger)
 	parentSpan := opentracing.SpanFromContext(ctx)
-	span := opentracing.StartSpan("lamassu-ca: Get Certificate request", opentracing.ChildOf(parentSpan.Context()))
-	req, err := c.client.NewRequest("GET", "v1/"+caType+"/"+IssuerName+"/cert/"+SerialNumber, nil)
 
+	span := opentracing.StartSpan("lamassu-ca: Get Certificate request", opentracing.ChildOf(parentSpan.Context()))
+	span_id := fmt.Sprintf("%s", span)
+	req, err := c.client.NewRequest("GET", "v1/"+caType+"/"+IssuerName+"/cert/"+SerialNumber, nil)
+	req.Header.Set("uber-trace-id", span_id)
 	if err != nil {
 		span.Finish()
 		level.Error(c.logger).Log("err", err, "msg", "Could not create Get Certificate request")

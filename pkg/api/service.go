@@ -61,7 +61,6 @@ func (s *caService) Health(ctx context.Context) bool {
 }
 
 func (s *caService) GetCAs(ctx context.Context, caType secrets.CAType) (secrets.Certs, error) {
-	//logger := log.With(s.logger, "trace_id", opentracing.SpanFromContext(ctx))
 
 	CAs, err := s.secrets.GetCAs(ctx, caType)
 	if err != nil {

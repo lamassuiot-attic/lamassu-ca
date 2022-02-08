@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"crypto/x509"
+	"fmt"
 	"time"
 
 	"github.com/go-kit/kit/log"
@@ -52,14 +53,9 @@ func (mw *amqpMiddleware) GetCAs(ctx context.Context, caType secrets.CAType) (CA
 
 func (mw *amqpMiddleware) CreateCA(ctx context.Context, caType secrets.CAType, caName string, ca secrets.Cert) (cretedCa secrets.Cert, err error) {
 	defer func(begin time.Time) {
-		// queue, err := mw.amqpChannel.QueueDeclare("create_ca_queue", false, false, false, false, nil)
-		// if err != nil {
-		// 	level.Error(mw.logger).Log("msg", "Error while declaring AMQP queue", "err", err)
-		// }
-
 		err = mw.amqpChannel.Publish("", "create_ca_queue", false, false, amqp.Publishing{
 			ContentType: "text/json",
-			Body:        []byte(`{"jsonrpc": "2.0", "method": "CREATE_CA", "params": {"ca_certificate": "` + cretedCa.CertContent.CerificateBase64 + `","verification_cert": "` + cretedCa.CertContent.CerificateBase64 + `", "ca_name": "` + caName + `"}}`),
+			Body:        []byte(fmt.Sprintf(`{"jsonrpc": "2.0", "method": "CREATE_CA", "params": %s}`, cretedCa)),
 		})
 		if err != nil {
 			level.Error(mw.logger).Log("msg", "Error while publishing to AMQP queue", "err", err)
@@ -73,7 +69,6 @@ func (mw *amqpMiddleware) ImportCA(ctx context.Context, caType secrets.CAType, c
 	defer func(begin time.Time) {
 
 	}(time.Now())
-
 	return mw.next.ImportCA(ctx, caType, caName, ca)
 }
 

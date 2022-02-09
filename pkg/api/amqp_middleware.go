@@ -55,7 +55,7 @@ func (mw *amqpMiddleware) CreateCA(ctx context.Context, caType secrets.CAType, c
 	defer func(begin time.Time) {
 		err = mw.amqpChannel.Publish("", "create_ca_queue", false, false, amqp.Publishing{
 			ContentType: "text/json",
-			Body:        []byte(fmt.Sprintf(`{"jsonrpc": "2.0", "method": "CREATE_CA", "params": {"ca_name":"%s", "serial_number": "%s", "ca_cert":"%s"}}}`, cretedCa.Name, cretedCa.SerialNumber, cretedCa.CertContent.CerificateBase64)),
+			Body:        []byte(fmt.Sprintf(`{"jsonrpc": "2.0", "method": "CREATE_CA", "params": {"ca_name":"%s", "serial_number": "%s", "ca_cert":"%s"}}`, cretedCa.Name, cretedCa.SerialNumber, cretedCa.CertContent.CerificateBase64)),
 		})
 		if err != nil {
 			level.Error(mw.logger).Log("msg", "Error while publishing to AMQP queue", "err", err)

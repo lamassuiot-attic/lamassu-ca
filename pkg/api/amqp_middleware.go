@@ -101,9 +101,9 @@ func (mw *amqpMiddleware) DeleteCert(ctx context.Context, caType secrets.CAType,
 	return mw.next.DeleteCert(ctx, caType, caName, serialNumber)
 }
 
-func (mw *amqpMiddleware) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr x509.CertificateRequest) (crt string, err error) {
+func (mw *amqpMiddleware) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr x509.CertificateRequest, signVerbatim bool) (crt string, err error) {
 	defer func(begin time.Time) {
 
 	}(time.Now())
-	return mw.next.SignCertificate(ctx, caType, caName, csr)
+	return mw.next.SignCertificate(ctx, caType, caName, csr, signVerbatim)
 }

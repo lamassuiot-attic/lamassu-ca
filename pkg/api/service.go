@@ -20,7 +20,7 @@ type Service interface {
 	GetIssuedCerts(ctx context.Context, caType secrets.CAType, caName string) (secrets.Certs, error)
 	GetCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (secrets.Cert, error)
 	DeleteCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) error
-	SignCertificate(ctx context.Context, caType secrets.CAType, signingCaName string, csr x509.CertificateRequest) (string, error)
+	SignCertificate(ctx context.Context, caType secrets.CAType, signingCaName string, csr x509.CertificateRequest, signVerbatim bool) (string, error)
 }
 
 type caService struct {
@@ -117,8 +117,8 @@ func (s *caService) DeleteCert(ctx context.Context, caType secrets.CAType, caNam
 	return nil
 }
 
-func (s *caService) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr x509.CertificateRequest) (string, error) {
-	cert, err := s.secrets.SignCertificate(ctx, caType, caName, &csr)
+func (s *caService) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr x509.CertificateRequest, signVerbatim bool) (string, error) {
+	cert, err := s.secrets.SignCertificate(ctx, caType, caName, &csr, signVerbatim)
 	if err != nil {
 		return "", err
 	}

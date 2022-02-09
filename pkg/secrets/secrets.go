@@ -143,5 +143,5 @@ type Secrets interface {
 	GetCert(ctx context.Context, caType CAType, caName string, serialNumber string) (Cert, error)
 	DeleteCert(ctx context.Context, caType CAType, caName string, serialNumber string) error
 
-	SignCertificate(ctx context.Context, caType CAType, CAcaName string, csr *x509.CertificateRequest) (string, error)
+	SignCertificate(ctx context.Context, caType CAType, CAcaName string, csr *x509.CertificateRequest, signVerbatim bool) (string, error)
 }

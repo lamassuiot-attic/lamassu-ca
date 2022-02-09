@@ -151,11 +151,11 @@ func MakeSignCertEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(SignCertificateRquest)
 
-		data, _ := base64.StdEncoding.DecodeString(req.base64Csr)
+		data, _ := base64.StdEncoding.DecodeString(req.Base64Csr)
 		block, _ := pem.Decode([]byte(data))
 		csr, _ := x509.ParseCertificateRequest(block.Bytes)
 
-		crt, err := s.SignCertificate(ctx, req.CaType, req.CAName, *csr)
+		crt, err := s.SignCertificate(ctx, req.CaType, req.CAName, *csr, req.SignVerbatim)
 		return SignCertificateResponse{Crt: crt}, err
 	}
 }
@@ -225,9 +225,10 @@ type ImportCARequest struct {
 }
 
 type SignCertificateRquest struct {
-	CaType    secrets.CAType
-	CAName    string
-	base64Csr string
+	CaType       secrets.CAType
+	CAName       string
+	Base64Csr    string
+	SignVerbatim bool
 }
 
 type errorResponse struct {

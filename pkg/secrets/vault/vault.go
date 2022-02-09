@@ -182,7 +182,7 @@ func (vs *VaultSecrets) GetSecretProviderName(ctx context.Context) string {
 	return "Hashicorp_Vault"
 }
 
-func (vs *VaultSecrets) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr *x509.CertificateRequest) (string, error) {
+func (vs *VaultSecrets) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr *x509.CertificateRequest, signVerbatim bool) (string, error) {
 
 	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
 	options := map[string]interface{}{
@@ -191,10 +191,18 @@ func (vs *VaultSecrets) SignCertificate(ctx context.Context, caType secrets.CATy
 	}
 
 	parentSpan := opentracing.SpanFromContext(ctx)
-	span := opentracing.StartSpan("lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller", opentracing.ChildOf(parentSpan.Context()))
-
-	data, err := vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller", options)
-	span.Finish()
+	var data *api.Secret
+	var err error
+	if signVerbatim {
+		span := opentracing.StartSpan("lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller", opentracing.ChildOf(parentSpan.Context()))
+		data, err = vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+caName+"/sign-verbatim/enroller", options)
+		span.Finish()
+	} else {
+		options["exclude_cn_from_sans"] = true
+		span := opentracing.StartSpan("lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/sign/enroller", opentracing.ChildOf(parentSpan.Context()))
+		data, err = vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+caName+"/sign/enroller", options)
+		span.Finish()
+	}
 	if err != nil {
 		return "", err
 	}

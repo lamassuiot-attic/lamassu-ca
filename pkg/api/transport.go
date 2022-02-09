@@ -301,7 +301,8 @@ func decodeSignCertificateRequest(ctx context.Context, r *http.Request) (request
 	}
 
 	type Csr struct {
-		Csr string `json:"csr"`
+		Csr          string `json:"csr"`
+		SignVerbatim bool   `json:"sign_verbatim"`
 	}
 
 	var csrRequest Csr
@@ -311,9 +312,10 @@ func decodeSignCertificateRequest(ctx context.Context, r *http.Request) (request
 	}
 
 	return SignCertificateRquest{
-		CaType:    caType,
-		CAName:    CA,
-		base64Csr: csrRequest.Csr,
+		CaType:       caType,
+		CAName:       CA,
+		Base64Csr:    csrRequest.Csr,
+		SignVerbatim: csrRequest.SignVerbatim,
 	}, nil
 }
 

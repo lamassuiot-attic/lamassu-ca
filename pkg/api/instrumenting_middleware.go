@@ -115,12 +115,12 @@ func (mw *instrumentingMiddleware) DeleteCert(ctx context.Context, caType secret
 	return mw.next.DeleteCert(ctx, caType, caName, serialNumber)
 }
 
-func (mw *instrumentingMiddleware) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr x509.CertificateRequest) (crt string, err error) {
+func (mw *instrumentingMiddleware) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr x509.CertificateRequest, signVerbatim bool) (crt string, err error) {
 	defer func(begin time.Time) {
 		lvs := []string{"method", "SignCertificate", "error", fmt.Sprint(err != nil)}
 		mw.requestCount.With(lvs...).Add(1)
 		mw.requestLatency.With(lvs...).Observe(time.Since(begin).Seconds())
 	}(time.Now())
 
-	return mw.next.SignCertificate(ctx, caType, caName, csr)
+	return mw.next.SignCertificate(ctx, caType, caName, csr, signVerbatim)
 }

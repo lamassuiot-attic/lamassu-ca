@@ -19,7 +19,7 @@ import (
 
 type LamassuCaClient interface {
 	GetCAs(ctx context.Context, caType string) (Certs, error)
-	SignCertificateRequest(ctx context.Context, signingCaName string, csr *x509.CertificateRequest, caType string) (*x509.Certificate, error)
+	SignCertificateRequest(ctx context.Context, signingCaName string, csr *x509.CertificateRequest, caType string, signVerbatim bool) (*x509.Certificate, error)
 	RevokeCert(ctx context.Context, IssuerName string, serialNumberToRevoke string, caType string) error
 	GetCert(ctx context.Context, IssuerName string, SerialNumber string, caType string) (Cert, error)
 }
@@ -94,7 +94,7 @@ func (c *LamassuCaClientConfig) GetCAs(ctx context.Context, caType string) (Cert
 	return certs, nil
 }
 
-func (c *LamassuCaClientConfig) SignCertificateRequest(ctx context.Context, signingCaName string, csr *x509.CertificateRequest, caType string) (*x509.Certificate, error) {
+func (c *LamassuCaClientConfig) SignCertificateRequest(ctx context.Context, signingCaName string, csr *x509.CertificateRequest, caType string, signVerbatim bool) (*x509.Certificate, error) {
 	c.logger = ctx.Value("LamassuLogger").(log.Logger)
 
 	parentSpan := opentracing.SpanFromContext(ctx)
@@ -102,7 +102,8 @@ func (c *LamassuCaClientConfig) SignCertificateRequest(ctx context.Context, sign
 	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
 	base64CsrContent := base64.StdEncoding.EncodeToString(csrBytes)
 	body := map[string]interface{}{
-		"csr": base64CsrContent,
+		"csr":           base64CsrContent,
+		"sign_verbatim": signVerbatim,
 	}
 	span := opentracing.StartSpan("lamassu-ca: Sign Certificate request", opentracing.ChildOf(parentSpan.Context()))
 	span_id := fmt.Sprintf("%s", span)

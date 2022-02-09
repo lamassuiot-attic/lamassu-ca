@@ -42,11 +42,13 @@ type VaultSecrets struct {
 // This type implements the http.RoundTripper interface
 type LoggingRoundTripper struct {
 	next http.RoundTripper
+	ctx  context.Context
 }
 
-func NewLoggingRoundTripper(next http.RoundTripper) *LoggingRoundTripper {
+func NewLoggingRoundTripper(next http.RoundTripper /*ctx context.Context*/) *LoggingRoundTripper {
 	return &LoggingRoundTripper{
 		next: next,
+		//	ctx:  ctx,
 	}
 }
 
@@ -68,6 +70,7 @@ func (lrt LoggingRoundTripper) RoundTrip(req *http.Request) (res *http.Response,
 }
 
 func NewVaultSecrets(address string, pkiPath string, roleID string, secretID string, CA string, unsealFile string, ocspUrl string, logger log.Logger) (*VaultSecrets, error) {
+
 	client, err := CreateVaultSdkClient(address, CA, logger)
 	if err != nil {
 		return nil, errors.New("Could not create Vault API client: " + err.Error())
@@ -180,6 +183,7 @@ func (vs *VaultSecrets) GetSecretProviderName(ctx context.Context) string {
 }
 
 func (vs *VaultSecrets) SignCertificate(ctx context.Context, caType secrets.CAType, caName string, csr *x509.CertificateRequest) (string, error) {
+
 	csrBytes := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE REQUEST", Bytes: csr.Raw})
 	options := map[string]interface{}{
 		"csr":         string(csrBytes),
@@ -305,7 +309,7 @@ func (vs *VaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAN
 	}
 	err := vs.initPkiSecret(ctx, caType, CAName, ca.EnrollerTTL)
 	if err != nil {
-		return secrets.Cert{}, nil
+		return secrets.Cert{}, err
 	}
 
 	tuneOptions := map[string]interface{}{
@@ -318,7 +322,7 @@ func (vs *VaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAN
 
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not tune CA "+CAName)
-		return secrets.Cert{}, nil
+		return secrets.Cert{}, err
 	}
 
 	options := map[string]interface{}{

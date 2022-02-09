@@ -111,7 +111,7 @@ func MakeCreateCAEndpoint(s Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(CreateCARequest)
 		ca, err := s.CreateCA(ctx, req.CaType, req.CAName, req.CA)
-		return CreateCAResponse{CA: ca}, err
+		return CreateCAResponse{CA: ca, Err: err}, nil
 	}
 }
 

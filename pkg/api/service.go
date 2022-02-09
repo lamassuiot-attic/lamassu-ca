@@ -39,7 +39,7 @@ var (
 	//ErrDeleteCA         = errors.New("unable to delete CA from secret engine")
 	ErrEmptyCA          = errors.New("CA name not defined")
 	ErrEmtySerialNumber = errors.New("Certificate without Serial Number")
-	ErrDeleteCA         = errors.New("Could not delete certificate from Vault")
+	ErrDeleteCA         = errors.New("could not delete certificate from Vault")
 	ErrDeleteCert       = errors.New("Could not revoke cert from CA")
 	ErrImportCA         = errors.New("Could no create CA. Already exists")
 )
@@ -73,7 +73,7 @@ func (s *caService) GetCAs(ctx context.Context, caType secrets.CAType) (secrets.
 func (s *caService) CreateCA(ctx context.Context, caType secrets.CAType, caName string, ca secrets.Cert) (secrets.Cert, error) {
 	createdCa, err := s.secrets.CreateCA(ctx, caType, caName, ca)
 	if err != nil {
-		return createdCa, err
+		return secrets.Cert{}, err
 	}
 
 	return createdCa, err

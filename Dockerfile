@@ -3,8 +3,7 @@ WORKDIR /app
 COPY . .
 WORKDIR /app
 ENV GOSUMDB=off
-RUN go mod tidy
-RUN CGO_ENABLED=0 go build -o ca cmd/main.go
+RUN CGO_ENABLED=0 go build -mod=vendor -o ca cmd/main.go
 
 FROM alpine:3.14
 COPY --from=0 /app/ca /

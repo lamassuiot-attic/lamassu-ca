@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"path"
 	"strings"
 	"syscall"
 
@@ -17,18 +16,18 @@ import (
 	"github.com/go-kit/kit/log/level"
 	kitprometheus "github.com/go-kit/kit/metrics/prometheus"
 	"github.com/go-openapi/runtime/middleware"
-	"github.com/lamassuiot/lamassu-ca/pkg/api"
-	"github.com/lamassuiot/lamassu-ca/pkg/config"
-	"github.com/lamassuiot/lamassu-ca/pkg/docs"
-	"github.com/lamassuiot/lamassu-ca/pkg/secrets/vault"
-	"github.com/lamassuiot/lamassu-ca/pkg/utils"
+	"github.com/lamassuiot/lamassu-ca/pkg/server/api/service"
+	"github.com/lamassuiot/lamassu-ca/pkg/server/api/transport"
+	"github.com/lamassuiot/lamassu-ca/pkg/server/config"
+	"github.com/lamassuiot/lamassu-ca/pkg/server/docs"
+	"github.com/lamassuiot/lamassu-ca/pkg/server/secrets/vault"
+	"github.com/lamassuiot/lamassu-ca/pkg/server/utils"
 	"github.com/opentracing/opentracing-go"
 	stdprometheus "github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/streadway/amqp"
 	jaegercfg "github.com/uber/jaeger-client-go/config"
 	jaegerlog "github.com/uber/jaeger-client-go/log"
-	"gopkg.in/yaml.v2"
 )
 
 func main() {
@@ -91,21 +90,21 @@ func main() {
 		level.Error(logger).Log("err", err, "msg", "Failed to connect to AMQP")
 		os.Exit(1)
 	}
-	// defer amqpConn.Close()
+	defer amqpConn.Close()
 
 	amqpChannel, err := amqpConn.Channel()
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Failed to create AMQP channel")
 		os.Exit(1)
 	}
-	// defer amqpChannel.Close()
+	defer amqpChannel.Close()
 
-	var s api.Service
+	var s service.Service
 	{
-		s = api.NewCAService(logger, secretsVault)
-		s = api.LoggingMiddleware(logger)(s)
-		s = api.NewAmqpMiddleware(amqpChannel, logger)(s)
-		s = api.NewInstrumentingMiddleware(
+		s = service.NewCAService(logger, secretsVault)
+		s = service.NewAmqpMiddleware(amqpChannel, logger)(s)
+		s = service.LoggingMiddleware(logger)(s)
+		s = service.NewInstrumentingMiddleware(
 			kitprometheus.NewCounterFrom(stdprometheus.CounterOpts{
 				Namespace: "enroller",
 				Subsystem: "enroller_service",
@@ -123,35 +122,27 @@ func main() {
 
 	openapiSpec := docs.NewOpenAPI3(cfg)
 
-	openapiSpecJsonData, _ := json.Marshal(&openapiSpec)
-	openapiSpecYamlData, _ := yaml.Marshal(&openapiSpec)
-
-	err = os.MkdirAll("docs", 0744)
-	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not create openapiv3 docs dir")
-		os.Exit(1)
-	}
-
-	err = os.WriteFile(path.Join("docs", "openapiv3.json"), openapiSpecJsonData, 0644)
-	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not create openapiv3 JSON spec file")
-		os.Exit(1)
-	}
-
-	err = os.WriteFile(path.Join("docs", "openapiv3.yaml"), openapiSpecYamlData, 0644)
-	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not create openapiv3 YAML spec file")
-		os.Exit(1)
+	specHandler := func(prefix string) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			url := r.URL.Path
+			if originalPrefix, ok := r.Header["X-Envoy-Original-Path"]; ok {
+				url = originalPrefix[0]
+			}
+			url = strings.Split(url, prefix)[0]
+			openapiSpec.Servers[0].URL = url
+			openapiSpecJsonData, _ := json.Marshal(&openapiSpec)
+			w.Write(openapiSpecJsonData)
+		}
 	}
 
 	mux := http.NewServeMux()
 
-	http.Handle("/", accessControl(api.MakeHTTPHandler(s, log.With(logger, "component", "HTTPS"), tracer)))
-	http.Handle("/docs", middleware.SwaggerUI(middleware.SwaggerUIOpts{
-		Path:    "/docs",
-		SpecURL: "docs/openapiv3.json",
-	}, mux))
-	http.Handle("/docs/", http.StripPrefix("/docs/", http.FileServer(http.Dir("docs"))))
+	http.Handle("/v1/", accessControl(http.StripPrefix("/v1", transport.MakeHTTPHandler(s, log.With(logger, "component", "HTTPS"), tracer))))
+	http.Handle("/v1/docs/", http.StripPrefix("/v1/docs", middleware.SwaggerUI(middleware.SwaggerUIOpts{
+		Path:    "/",
+		SpecURL: "spec.json",
+	}, mux)))
+	http.HandleFunc("/v1/docs/spec.json", specHandler("/v1/docs/"))
 	http.Handle("/metrics", promhttp.Handler())
 
 	errs := make(chan error)

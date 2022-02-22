@@ -227,7 +227,11 @@ func MakeDeleteCertEndpoint(s service.Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(DeleteCertRequest)
 		err = s.DeleteCert(ctx, req.CaType, req.CaName, req.SerialNumber)
-		return nil, err
+		if err != nil {
+			return "", err
+		} else {
+			return "OK", err
+		}
 	}
 }
 

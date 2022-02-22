@@ -426,7 +426,7 @@ func setup(t *testing.T) (Service, context.Context) {
 	ctx := context.Background()
 	spanId, ctx := opentracing.StartSpanFromContext(ctx, "test")
 	fmt.Printf("spanId: %v\n", spanId)
-	ctx = context.WithValue(ctx, "LamassuLogger", logger)
+	ctx = context.WithValue(ctx, utils.LamassuLoggerContextKey, logger)
 
 	level.Info(logger).Log("msg", "Jaeger tracer started")
 

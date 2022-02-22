@@ -191,7 +191,7 @@ func (vs *VaultSecrets) SignCertificate(ctx context.Context, caType secrets.CATy
 }
 
 func (vs *VaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName string) (secrets.Cert, error) {
-	logger := ctx.Value(string(utils.LamassuLoggerContextKey)).(log.Logger)
+	logger := ctx.Value(utils.LamassuLoggerContextKey).(log.Logger)
 	parentSpan := opentracing.SpanFromContext(ctx)
 	span := opentracing.StartSpan("lamassu-ca-api: vault-api GET /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/cert/ca", opentracing.ChildOf(parentSpan.Context()))
 	resp, err := vs.client.Logical().Read(vs.pkiPath + caType.ToVaultPath() + caName + "/cert/ca")
@@ -251,7 +251,7 @@ func (vs *VaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName
 }
 
 func (vs *VaultSecrets) GetCAs(ctx context.Context, caType secrets.CAType) ([]secrets.Cert, error) {
-	logger := ctx.Value(string(utils.LamassuLoggerContextKey)).(log.Logger)
+	logger := ctx.Value(utils.LamassuLoggerContextKey).(log.Logger)
 	if ctx.Value("DBIncorrect") != nil {
 		failDB := ctx.Value("DBIncorrect").(bool)
 
@@ -291,7 +291,7 @@ func (vs *VaultSecrets) GetCAs(ctx context.Context, caType secrets.CAType) ([]se
 }
 
 func (vs *VaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAName string, privateKeyMetadata secrets.PrivateKeyMetadata, subject secrets.Subject, caTTL int, enrollerTTL int) (secrets.Cert, error) {
-	logger := ctx.Value(string(utils.LamassuLoggerContextKey)).(log.Logger)
+	logger := ctx.Value(utils.LamassuLoggerContextKey).(log.Logger)
 
 	err := vs.initPkiSecret(ctx, caType, CAName, enrollerTTL)
 	if err != nil {
@@ -363,7 +363,7 @@ func (vs *VaultSecrets) ImportCA(ctx context.Context, caType secrets.CAType, CAN
 }
 
 func (vs *VaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType, CAName string, enrollerTTL int) error {
-	logger := ctx.Value(string(utils.LamassuLoggerContextKey)).(log.Logger)
+	logger := ctx.Value(utils.LamassuLoggerContextKey).(log.Logger)
 
 	mountInput := api.MountInput{Type: "pki", Description: ""}
 
@@ -415,7 +415,7 @@ func (vs *VaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType
 }
 
 func (vs *VaultSecrets) DeleteCA(ctx context.Context, caType secrets.CAType, ca string) error {
-	logger := ctx.Value(string(utils.LamassuLoggerContextKey)).(log.Logger)
+	logger := ctx.Value(utils.LamassuLoggerContextKey).(log.Logger)
 
 	if len(ca) == 0 {
 		err := errors.New("CA name not defined")
@@ -451,7 +451,7 @@ func (vs *VaultSecrets) DeleteCA(ctx context.Context, caType secrets.CAType, ca 
 }
 
 func (vs *VaultSecrets) GetCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (secrets.Cert, error) {
-	logger := ctx.Value(string(utils.LamassuLoggerContextKey)).(log.Logger)
+	logger := ctx.Value(utils.LamassuLoggerContextKey).(log.Logger)
 	parentSpan := opentracing.SpanFromContext(ctx)
 	if len(serialNumber) <= 0 {
 		return secrets.Cert{}, errors.New("empty serial number")
@@ -510,7 +510,7 @@ func (vs *VaultSecrets) GetCert(ctx context.Context, caType secrets.CAType, caNa
 }
 
 func (vs *VaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CAType, caName string) ([]secrets.Cert, error) {
-	logger := ctx.Value(string(utils.LamassuLoggerContextKey)).(log.Logger)
+	logger := ctx.Value(utils.LamassuLoggerContextKey).(log.Logger)
 	if ctx.Value("DBIncorrect") != nil {
 		failDB := ctx.Value("DBIncorrect").(bool)
 
@@ -633,7 +633,7 @@ func (vs *VaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CATyp
 }
 
 func (vs *VaultSecrets) DeleteCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) error {
-	logger := ctx.Value(string(utils.LamassuLoggerContextKey)).(log.Logger)
+	logger := ctx.Value(utils.LamassuLoggerContextKey).(log.Logger)
 
 	options := map[string]interface{}{
 		"serial_number": serialNumber,

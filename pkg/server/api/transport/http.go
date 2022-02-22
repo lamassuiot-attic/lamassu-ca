@@ -319,7 +319,7 @@ func decodeSignCertificateRequest(ctx context.Context, r *http.Request) (request
 
 func decodeDeleteCertRequest(ctx context.Context, r *http.Request) (request interface{}, err error) {
 	vars := mux.Vars(r)
-	ca, ok := vars["ca"]
+	ca, ok := vars["caName"]
 	if !ok {
 		return nil, ErrMissingCAName()
 	}

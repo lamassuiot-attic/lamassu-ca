@@ -133,7 +133,8 @@ func NewOpenAPI3(config config.Config) openapi3.T {
 				WithDescription("Request used for getting all a certificates").
 				WithRequired(true).
 				WithJSONSchema(openapi3.NewSchema().
-					WithProperty("csr", openapi3.NewStringSchema()),
+					WithProperty("csr", openapi3.NewStringSchema()).
+					WithProperty("sign_verbatim", openapi3.NewBoolSchema()),
 				),
 		},
 		"postCSRRequest": &openapi3.RequestBodyRef{

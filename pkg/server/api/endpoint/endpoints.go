@@ -305,7 +305,7 @@ func ValidateCreatrCARequest(request CreateCARequest) error {
 				sl.ReportError(req.CaPayload.KeyMetadata.KeyBits, "bits", "Bits", "bits1024multipleAndGt2048", "")
 			}
 		case "ec":
-			if req.CaPayload.KeyMetadata.KeyBits < 160 || req.CaPayload.KeyMetadata.KeyBits > 512 {
+			if req.CaPayload.KeyMetadata.KeyBits != 224 && req.CaPayload.KeyMetadata.KeyBits != 256 && req.CaPayload.KeyMetadata.KeyBits != 384 {
 				sl.ReportError(req.CaPayload.KeyMetadata.KeyBits, "bits", "Bits", "bitsEcdsaMultiple", "")
 			}
 		}

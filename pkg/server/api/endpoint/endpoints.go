@@ -273,17 +273,17 @@ type CreateCARequest struct {
 	CaName    string `validate:"required"`
 	CaPayload struct {
 		KeyMetadata struct {
-			KeyType string `json:"type" validate:"oneof='rsa' 'ecdsa'"`
+			KeyType string `json:"type" validate:"oneof='rsa' 'ec'"`
 			KeyBits int    `json:"bits" validate:"required"`
 		} `json:"key_metadata" validate:"required"`
 
 		Subject struct {
-			CN string `json:"common_name" validate:"required"`
-			O  string `json:"organization" validate:"required"`
-			OU string `json:"organization_unit" validate:"required"`
-			C  string `json:"country" validate:"required"`
-			ST string `json:"state" validate:"required"`
-			L  string `json:"locality" validate:"required"`
+			CN string `json:"common_name"`
+			O  string `json:"organization"`
+			OU string `json:"organization_unit"`
+			C  string `json:"country"`
+			ST string `json:"state"`
+			L  string `json:"locality"`
 		} `json:"subject"`
 
 		CaTTL       int `json:"ca_ttl" validate:"required"`
@@ -296,10 +296,10 @@ func ValidateCreatrCARequest(request CreateCARequest) error {
 		req := sl.Current().Interface().(CreateCARequest)
 		switch req.CaPayload.KeyMetadata.KeyType {
 		case "rsa":
-			if math.Mod(float64(req.CaPayload.KeyMetadata.KeyBits), 1024) != 0 && req.CaPayload.KeyMetadata.KeyBits < 2048 {
+			if math.Mod(float64(req.CaPayload.KeyMetadata.KeyBits), 1024) != 0 || req.CaPayload.KeyMetadata.KeyBits < 2048 {
 				sl.ReportError(req.CaPayload.KeyMetadata.KeyBits, "bits", "Bits", "bits1024multipleAndGt2048", "")
 			}
-		case "ecdsa":
+		case "ec":
 			if req.CaPayload.KeyMetadata.KeyBits < 160 || req.CaPayload.KeyMetadata.KeyBits > 512 {
 				sl.ReportError(req.CaPayload.KeyMetadata.KeyBits, "bits", "Bits", "bitsEcdsaMultiple", "")
 			}

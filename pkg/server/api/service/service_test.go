@@ -24,6 +24,53 @@ type serviceSetUp struct {
 	secrets secrets.Secrets
 }
 
+func TestSignCertificate(t *testing.T) {
+	srv, ctx := setup(t)
+
+	caType, _ := secrets.ParseCAType("pki")
+	caName := "testMockGetCert"
+	certReq := testCA(caName)
+
+	keyMetadata := secrets.PrivateKeyMetadata{
+		KeyType: certReq.KeyMetadata.KeyType,
+		KeyBits: certReq.KeyMetadata.KeyBits,
+	}
+	newCA, _ := srv.CreateCA(ctx, caType, "testDCMock", keyMetadata, certReq.Subject, certReq.CaTTL, certReq.EnrollerTTL)
+	input := "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2pqQ0NBWFlDQVFBd1NURUxNQWtHQTFVRUJoTUNSVk14Q2pBSUJnTlZCQWdNQVVFeENqQUlCZ05WQkFjTQpBVUV4Q2pBSUJnTlZCQW9NQVVFeENqQUlCZ05WQkFzTUFVRXhDakFJQmdOVkJBTU1BVUV3Z2dFaU1BMEdDU3FHClNJYjNEUUVCQVFVQUE0SUJEd0F3Z2dFS0FvSUJBUURDaFUxRFROckI0a2JTaVpjQjBMaHhUQ2dPYXlQUUU0VzkKT2N1MFBpczBybUliZnM2T2pERk5qcUY5dlhOcFlUSGhtL3FaTVZTWEZYZjM4VDBJS3NmU2lCYm5aa0pYWWc0NgptY2tLY1VkQ0VsUy8wK3RYaDh6Slo3QXNsV0Z2eXFLek5nUVJCcnhJQ0RVOTdVWXJ6eWk3ajVOSUJ2OHJvRld4CjVJOUNXUEpEQ00vRUFHMHVldjZQNVQzN2dKUzlFcnZXeERmWDVJL3hxRnZEQnpsV0VqbytFZ1piM3daSEt5d3QKMUVaVHBET1NKY29VeXZnWmFwUFF6U2JDZVdUL3ZlRW8rem5pUlk5SThFRlJhNm9DWDNCbVc4Snh2V2FSOVd3YQpnVUZ4cFM5OHdJN0JwSVJUeFgwdk9oMXZlUlBjWmRsVmFMZlJQb1BuV1BkdHAwckFDdXB6QWdNQkFBR2dBREFOCkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQUllbTV5YnpVR1VvSk9yUjc1bW5COGZNUmVBWi9NalRVamYwem0xQjQKeGo4U1FMYTI2djU2ZkxOYkZ6NTlaaDlJa0J2U1AyNWNRTm5JU1lZT3RxejZLakJzcEVVQnNKaFVKcTNRNXpybgo3WVVoZnN2NWIzN0h2Y3h6akpvWW05NlZiU2FwQk5RWStGbjJ3R3NhZ1Zucktoalk0REdMM0lKQmlicmJvcEg2ClJwaFJRMWwyeXcwbUEybG9jK0hEZ1VwVTR4bXRpangvbHZmdHkzYVdwelBmV3pOWFRVYkEwNTFGY3hEQWh0SlkKbEd5WUxKSk1XQ08rL3NlUkxLSWFrZTFNeFR5Nzd0WVJ3MUNkVkJWWWFIbU8xM2k3ek8zYWVxdzloaGNHcWhyUQpXSWlYQ2lRdm9GN25oSmRvOEdmbkV5L1hKWk54LzQzbFVxUFcrekNhaWlsa2h3PT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0t"
+	data, _ := base64.StdEncoding.DecodeString(input)
+	block, _ := pem.Decode([]byte(data))
+	csr, _ := x509.ParseCertificateRequest(block.Bytes)
+
+	inputError := "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ3B6Q0NBWThDQVFBd1lqRUxNQWtHQTFVRUJoTUNSVk14RVRBUEJnTlZCQWdNQ0VkcGNIVjZhMjloTVJFdwpEd1lEVlFRSERBaEJjbkpoYzJGMFpURU1NQW9HQTFVRUNnd0RTVXRNTVF3d0NnWURWUVFMREFOYVVFUXhFVEFQCkJnTlZCQU1NQ0dWeWNtOXlURzluTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUEKMnZEckt0Y04yMTdjL09LSjhoYldyZmN4Y0ovWXE5NEdJZm8zOXozSERLK3hRaW1MQU42RnBFclNZS2lYKy96TApURzQzOUFaOXlCUko5cVlRZkFtaGlpcDdVbXdSeVA0QUpkN0hJTHVwUnZkOXNFVVhYM1BtUkc3UUVWQk9PbjhmClJmSFlFSDBYQnl0UEpPQkZpSGFOWUpGOG40RmJHWklPWWt2QVYvUWFVUEpONTBDc0xDYmJLTjRHRUk2c01CbEcKZkFNMHFFeGNJZ01lWFJKVHRDajZFOGU2cDNqRWFBTVJWTktFdFFUS2hYeWNQQjhLQnp5NmJEZVZCeUVQVHBaVQo0ZC9HYVBRdDVtVGc0T0Q4WXMyQjlocFlDZWtPYkZld29lL013dTVLNjZOZTNqZkdKbUFycGc5OGczcjVBNVBDCnphTWkxWjlnQlBrdzdiL2tEd0xKUHdJREFRQUJvQUF3RFFZSktvWklodmNOQVFFTEJRQURnZ0VCQUtydUI0Sy8KY1IzOFN4S3BvL0w3WlpTQjJITTF0Mm4rdGhCUXAzZ0xVVnN4d2NWc3IvNGdRUjVCMzNOTml4TXBPbE51YitINgpaZiszaGpRVXpnc0RFa3c0aGgxSjZJdEdiQ0F6clVET2ZTbkNXMmRBZElWNWFkUk1lQTVSTWtIcmRrTFk0cm5vCnZEelRZTUlLYzJHMG9Qd2JnTnBNQm8zUmR0a0xCOG9mLy82dVptbkFXU1BOdkVZamJydkF3ZHgzOERWS1NPbUwKK3dKYXBEY0YxTlpBeWVkTlZVUUdiME9yeVovdXQzcXJ1VVM0QVg1bmVLRUg4eFFhUVNFOVM1UVJrT2tnZGlQNQpCNTdEMEc2emR4MkVOcmtkeXpyZUQ3cjc1R2ltWnRFaWxRUDBWd1o0SkhJbnRmb21oSzFuSXplM1U5ZnZ4ZmVjCkhZMzlWUXJyZU9RRjdKYz0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0t"
+	dataError, _ := base64.StdEncoding.DecodeString(inputError)
+	blockError, _ := pem.Decode([]byte(dataError))
+	csrError, _ := x509.ParseCertificateRequest(blockError.Bytes)
+
+	testCases := []struct {
+		name string
+		in   *x509.CertificateRequest
+		ret  error
+	}{
+		{"Correct", csr, nil},
+		{"Incorrect", csrError, errors.New("TEST: Could not obtain list of Vault mounts")},
+	}
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("Testing %s", tc.name), func(t *testing.T) {
+			if tc.name == "Incorrect" {
+				ctx = context.WithValue(ctx, "DBIncorrect", true)
+			}
+			_, err := srv.SignCertificate(ctx, caType, newCA.Name, *tc.in, false)
+
+			if err != nil {
+				if err.Error() != tc.ret.Error() {
+					t.Errorf("Got result is %s; want %s", err, tc.ret)
+				}
+			}
+
+		})
+	}
+}
+
 func TestHealth(t *testing.T) {
 	srv, ctx := setup(t)
 	type testCasesHealth struct {
@@ -58,50 +105,6 @@ func TestGetSecretProviderName(t *testing.T) {
 			if tc.ret != out {
 				t.Errorf("Secret Provider Name error")
 			}
-		})
-	}
-}
-
-func TestSignCertificate(t *testing.T) {
-	srv, ctx := setup(t)
-
-	caType, _ := secrets.ParseCAType("pki")
-	caName := "testMockGetCert"
-	certReq := testCA(caName)
-
-	keyMetadata := secrets.PrivateKeyMetadata{
-		KeyType: certReq.KeyMetadata.KeyType,
-		KeyBits: certReq.KeyMetadata.KeyBits,
-	}
-	newCA, _ := srv.CreateCA(ctx, caType, "testDCMock", keyMetadata, certReq.Subject, certReq.CaTTL, certReq.EnrollerTTL)
-	input := "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ2pqQ0NBWFlDQVFBd1NURUxNQWtHQTFVRUJoTUNSVk14Q2pBSUJnTlZCQWdNQVVFeENqQUlCZ05WQkFjTQpBVUV4Q2pBSUJnTlZCQW9NQVVFeENqQUlCZ05WQkFzTUFVRXhDakFJQmdOVkJBTU1BVUV3Z2dFaU1BMEdDU3FHClNJYjNEUUVCQVFVQUE0SUJEd0F3Z2dFS0FvSUJBUURDaFUxRFROckI0a2JTaVpjQjBMaHhUQ2dPYXlQUUU0VzkKT2N1MFBpczBybUliZnM2T2pERk5qcUY5dlhOcFlUSGhtL3FaTVZTWEZYZjM4VDBJS3NmU2lCYm5aa0pYWWc0NgptY2tLY1VkQ0VsUy8wK3RYaDh6Slo3QXNsV0Z2eXFLek5nUVJCcnhJQ0RVOTdVWXJ6eWk3ajVOSUJ2OHJvRld4CjVJOUNXUEpEQ00vRUFHMHVldjZQNVQzN2dKUzlFcnZXeERmWDVJL3hxRnZEQnpsV0VqbytFZ1piM3daSEt5d3QKMUVaVHBET1NKY29VeXZnWmFwUFF6U2JDZVdUL3ZlRW8rem5pUlk5SThFRlJhNm9DWDNCbVc4Snh2V2FSOVd3YQpnVUZ4cFM5OHdJN0JwSVJUeFgwdk9oMXZlUlBjWmRsVmFMZlJQb1BuV1BkdHAwckFDdXB6QWdNQkFBR2dBREFOCkJna3Foa2lHOXcwQkFRc0ZBQU9DQVFFQUllbTV5YnpVR1VvSk9yUjc1bW5COGZNUmVBWi9NalRVamYwem0xQjQKeGo4U1FMYTI2djU2ZkxOYkZ6NTlaaDlJa0J2U1AyNWNRTm5JU1lZT3RxejZLakJzcEVVQnNKaFVKcTNRNXpybgo3WVVoZnN2NWIzN0h2Y3h6akpvWW05NlZiU2FwQk5RWStGbjJ3R3NhZ1Zucktoalk0REdMM0lKQmlicmJvcEg2ClJwaFJRMWwyeXcwbUEybG9jK0hEZ1VwVTR4bXRpangvbHZmdHkzYVdwelBmV3pOWFRVYkEwNTFGY3hEQWh0SlkKbEd5WUxKSk1XQ08rL3NlUkxLSWFrZTFNeFR5Nzd0WVJ3MUNkVkJWWWFIbU8xM2k3ek8zYWVxdzloaGNHcWhyUQpXSWlYQ2lRdm9GN25oSmRvOEdmbkV5L1hKWk54LzQzbFVxUFcrekNhaWlsa2h3PT0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0t"
-	data, _ := base64.StdEncoding.DecodeString(input)
-	block, _ := pem.Decode([]byte(data))
-	csr, _ := x509.ParseCertificateRequest(block.Bytes)
-
-	inputError := "LS0tLS1CRUdJTiBDRVJUSUZJQ0FURSBSRVFVRVNULS0tLS0KTUlJQ3B6Q0NBWThDQVFBd1lqRUxNQWtHQTFVRUJoTUNSVk14RVRBUEJnTlZCQWdNQ0VkcGNIVjZhMjloTVJFdwpEd1lEVlFRSERBaEJjbkpoYzJGMFpURU1NQW9HQTFVRUNnd0RTVXRNTVF3d0NnWURWUVFMREFOYVVFUXhFVEFQCkJnTlZCQU1NQ0dWeWNtOXlURzluTUlJQklqQU5CZ2txaGtpRzl3MEJBUUVGQUFPQ0FROEFNSUlCQ2dLQ0FRRUEKMnZEckt0Y04yMTdjL09LSjhoYldyZmN4Y0ovWXE5NEdJZm8zOXozSERLK3hRaW1MQU42RnBFclNZS2lYKy96TApURzQzOUFaOXlCUko5cVlRZkFtaGlpcDdVbXdSeVA0QUpkN0hJTHVwUnZkOXNFVVhYM1BtUkc3UUVWQk9PbjhmClJmSFlFSDBYQnl0UEpPQkZpSGFOWUpGOG40RmJHWklPWWt2QVYvUWFVUEpONTBDc0xDYmJLTjRHRUk2c01CbEcKZkFNMHFFeGNJZ01lWFJKVHRDajZFOGU2cDNqRWFBTVJWTktFdFFUS2hYeWNQQjhLQnp5NmJEZVZCeUVQVHBaVQo0ZC9HYVBRdDVtVGc0T0Q4WXMyQjlocFlDZWtPYkZld29lL013dTVLNjZOZTNqZkdKbUFycGc5OGczcjVBNVBDCnphTWkxWjlnQlBrdzdiL2tEd0xKUHdJREFRQUJvQUF3RFFZSktvWklodmNOQVFFTEJRQURnZ0VCQUtydUI0Sy8KY1IzOFN4S3BvL0w3WlpTQjJITTF0Mm4rdGhCUXAzZ0xVVnN4d2NWc3IvNGdRUjVCMzNOTml4TXBPbE51YitINgpaZiszaGpRVXpnc0RFa3c0aGgxSjZJdEdiQ0F6clVET2ZTbkNXMmRBZElWNWFkUk1lQTVSTWtIcmRrTFk0cm5vCnZEelRZTUlLYzJHMG9Qd2JnTnBNQm8zUmR0a0xCOG9mLy82dVptbkFXU1BOdkVZamJydkF3ZHgzOERWS1NPbUwKK3dKYXBEY0YxTlpBeWVkTlZVUUdiME9yeVovdXQzcXJ1VVM0QVg1bmVLRUg4eFFhUVNFOVM1UVJrT2tnZGlQNQpCNTdEMEc2emR4MkVOcmtkeXpyZUQ3cjc1R2ltWnRFaWxRUDBWd1o0SkhJbnRmb21oSzFuSXplM1U5ZnZ4ZmVjCkhZMzlWUXJyZU9RRjdKYz0KLS0tLS1FTkQgQ0VSVElGSUNBVEUgUkVRVUVTVC0tLS0t"
-	dataError, _ := base64.StdEncoding.DecodeString(inputError)
-	blockError, _ := pem.Decode([]byte(dataError))
-	csrError, _ := x509.ParseCertificateRequest(blockError.Bytes)
-
-	testCases := []struct {
-		name string
-		in   *x509.CertificateRequest
-		ret  error
-	}{
-		{"Correct", csr, nil},
-		{"Incorrect", csrError, errors.New("gjh")},
-	}
-	for _, tc := range testCases {
-		t.Run(fmt.Sprintf("Testing %s", tc.name), func(t *testing.T) {
-			if tc.name == "Incorrect" {
-				ctx = context.WithValue(ctx, "DBIncorrect", true)
-			}
-			_, err := srv.SignCertificate(ctx, caType, newCA.Name, *tc.in, false)
-			if tc.ret != err {
-				t.Errorf("Secret Provider Name error")
-			}
-
 		})
 	}
 }

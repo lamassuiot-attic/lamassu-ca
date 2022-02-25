@@ -328,7 +328,7 @@ func (vs *VaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAN
 
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
-		return secrets.Cert{}, nil
+		return secrets.Cert{}, err
 	}
 
 	return vs.GetCA(ctx, caType, CAName)

@@ -219,7 +219,12 @@ func MakeSignCertEndpoint(s service.Service) endpoint.Endpoint {
 		caType, _ := secrets.ParseCAType(req.CaType)
 
 		crt, err := s.SignCertificate(ctx, caType, req.CaName, *csr, req.SignPayload.SignVerbatim)
-		return crt, err
+		crtResponse := struct {
+			Crt string `json:"crt"`
+		}{
+			Crt: crt,
+		}
+		return crtResponse, err
 	}
 }
 
@@ -335,7 +340,7 @@ type SignCertificateRquest struct {
 	CaName      string `validate:"required"`
 	SignPayload struct {
 		Csr          string `json:"csr" validate:"base64"`
-		SignVerbatim bool   `json:"sign_verbatim" validate:"required"`
+		SignVerbatim bool   `json:"sign_verbatim"`
 	}
 }
 

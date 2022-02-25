@@ -116,11 +116,16 @@ func (c *LamassuCaClientConfig) SignCertificateRequest(ctx context.Context, sign
 		return nil, err
 	}
 
-	var cert string
+	type SignResponse struct {
+		Crt string `json:"crt"`
+	}
+
+	var cert SignResponse
+
 	jsonString, _ := json.Marshal(respBody)
 	json.Unmarshal(jsonString, &cert)
 
-	data, _ := base64.StdEncoding.DecodeString(cert)
+	data, _ := base64.StdEncoding.DecodeString(cert.Crt)
 	block, _ := pem.Decode([]byte(data))
 	x509Certificate, _ := x509.ParseCertificate(block.Bytes)
 

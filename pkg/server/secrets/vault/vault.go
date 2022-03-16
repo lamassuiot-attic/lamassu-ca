@@ -109,8 +109,6 @@ func Unseal(client *api.Client, unsealFile string, logger log.Logger) error {
 		return err
 	}
 
-	unsealKeys := unsealFileMap["unseal_keys_hex"].([]interface{})
-
 	providedSharesCount := 0
 	sealed := true
 

@@ -102,9 +102,9 @@ func Unseal(client *api.Client, unsealFile string, logger log.Logger) error {
 	}
 
 	unsealFileByteValue, _ := ioutil.ReadAll(usnealJsonFile)
-	var unsealFileMap map[string]interface{}
+	var unsealKeys []interface{}
 
-	err = json.Unmarshal(unsealFileByteValue, &unsealFileMap)
+	err = json.Unmarshal(unsealFileByteValue, &unsealKeys)
 	if err != nil {
 		return err
 	}

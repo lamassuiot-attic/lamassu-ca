@@ -133,38 +133,31 @@ func (c *LamassuCaClientConfig) SignCertificateRequest(ctx context.Context, sign
 }
 
 func (c *LamassuCaClientConfig) RevokeCert(ctx context.Context, IssuerName string, serialNumberToRevoke string, caType string) error {
-	parentSpan := opentracing.SpanFromContext(ctx)
-
-	span := opentracing.StartSpan("lamassu-ca: Revoke Certificate request", opentracing.ChildOf(parentSpan.Context()))
-	span_id := fmt.Sprintf("%s", span)
 	req, err := c.client.NewRequest("DELETE", "v1/"+caType+"/"+IssuerName+"/cert/"+serialNumberToRevoke, nil)
-	req.Header.Set("uber-trace-id", span_id)
 	if err != nil {
-		span.Finish()
 		return err
 	}
-	_, _, err = c.client.Do(req)
-	span.Finish()
-	if err != nil {
+	_, resp, err := c.client.Do(req)
+	if resp.StatusCode == 412 {
+		return &AlreadyRevokedError{
+			CaName:       IssuerName,
+			SerialNumber: serialNumberToRevoke,
+		}
+	} else if err != nil {
 		return err
+	} else {
+
+		return nil
 	}
 
-	return nil
 }
 
 func (c *LamassuCaClientConfig) GetCert(ctx context.Context, IssuerName string, SerialNumber string, caType string) (Cert, error) {
-	parentSpan := opentracing.SpanFromContext(ctx)
-
-	span := opentracing.StartSpan("lamassu-ca: Get Certificate request", opentracing.ChildOf(parentSpan.Context()))
-	span_id := fmt.Sprintf("%s", span)
 	req, err := c.client.NewRequest("GET", "v1/"+caType+"/"+IssuerName+"/cert/"+SerialNumber, nil)
-	req.Header.Set("uber-trace-id", span_id)
 	if err != nil {
-		span.Finish()
 		return Cert{}, err
 	}
 	respBody, _, err := c.client.Do(req)
-	span.Finish()
 	if err != nil {
 		return Cert{}, err
 	}
@@ -175,4 +168,13 @@ func (c *LamassuCaClientConfig) GetCert(ctx context.Context, IssuerName string, 
 
 	return cert, nil
 
+}
+
+type AlreadyRevokedError struct {
+	CaName       string
+	SerialNumber string
+}
+
+func (e *AlreadyRevokedError) Error() string {
+	return fmt.Sprintf("certificate already revoked. CA name=%s Cert Serial Number=%s", e.CaName, e.SerialNumber)
 }

@@ -78,7 +78,7 @@ func NewVaultSecretsMock(t *testing.T) (*api.Client, error) {
 	//Setup CA internal root certificate
 	_, err = client.Logical().Write("Lamassu-Root-CA1-RSA4096/root/generate/internal", map[string]interface{}{
 		"common_name":  "LKS Next Root CA 1",
-		"key_type":     "rsa",
+		"key_type":     "RSA",
 		"key_bits":     "4096",
 		"organization": "LKS Next S. Coop",
 		"country":      "ES",

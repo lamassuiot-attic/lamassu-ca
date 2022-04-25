@@ -168,7 +168,7 @@ func MakeImportCAEndpoint(s service.Service) endpoint.Endpoint {
 		if err == nil {
 			privKey.Key = ecdsaKey
 		} else {
-			rsaKey, err := x509.ParsePKCS1PrivateKey(privKeyBlock.Bytes)
+			rsaKey, err := x509.ParsePKCS8PrivateKey(privKeyBlock.Bytes)
 			if err == nil {
 				privKey.Key = rsaKey
 			} else {
@@ -283,7 +283,7 @@ type CreateCARequest struct {
 		} `json:"key_metadata" validate:"required"`
 
 		Subject struct {
-			CN string `json:"common_name"`
+			CN string `json:"common_name" validate:"required"`
 			O  string `json:"organization"`
 			OU string `json:"organization_unit"`
 			C  string `json:"country"`
@@ -300,11 +300,11 @@ func ValidateCreatrCARequest(request CreateCARequest) error {
 	CreateCARequestStructLevelValidation := func(sl validator.StructLevel) {
 		req := sl.Current().Interface().(CreateCARequest)
 		switch req.CaPayload.KeyMetadata.KeyType {
-		case "rsa":
+		case "RSA":
 			if math.Mod(float64(req.CaPayload.KeyMetadata.KeyBits), 1024) != 0 || req.CaPayload.KeyMetadata.KeyBits < 2048 {
 				sl.ReportError(req.CaPayload.KeyMetadata.KeyBits, "bits", "Bits", "bits1024multipleAndGt2048", "")
 			}
-		case "ec":
+		case "EC":
 			if req.CaPayload.KeyMetadata.KeyBits != 224 && req.CaPayload.KeyMetadata.KeyBits != 256 && req.CaPayload.KeyMetadata.KeyBits != 384 {
 				sl.ReportError(req.CaPayload.KeyMetadata.KeyBits, "bits", "Bits", "bitsEcdsaMultiple", "")
 			}
@@ -312,6 +312,10 @@ func ValidateCreatrCARequest(request CreateCARequest) error {
 
 		if req.CaPayload.EnrollerTTL >= req.CaPayload.CaTTL {
 			sl.ReportError(req.CaPayload.EnrollerTTL, "enrollerttl", "EnrollerTTL", "enrollerTtlGtCaTtl", "")
+		}
+
+		if req.CaPayload.Subject.CN != req.CaName {
+			sl.ReportError(req.CaPayload.Subject.CN, "commonName", "CommonName", "commonName and caName must be equal", "")
 		}
 	}
 

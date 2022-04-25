@@ -256,12 +256,12 @@ the key_type.`,
 
 	fields["key_type"] = &framework.FieldSchema{
 		Type:    framework.TypeString,
-		Default: "rsa",
-		Description: `The type of key to use; defaults to RSA. "rsa"
+		Default: "RSA",
+		Description: `The type of key to use; defaults to RSA. "RSA"
 and "ec" are the only valid values.`,
-		AllowedValues: []interface{}{"rsa", "ec"},
+		AllowedValues: []interface{}{"RSA", "EC"},
 		DisplayAttrs: &framework.DisplayAttributes{
-			Value: "rsa",
+			Value: "RSA",
 		},
 	}
 	return fields

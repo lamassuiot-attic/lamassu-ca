@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"errors"
-	"fmt"
 	"io/ioutil"
 	"os"
 	"strconv"
@@ -115,14 +114,14 @@ func Unseal(client *api.Client, unsealFile string, logger log.Logger) error {
 	for sealed {
 		unsealStatusProgress, err := client.Sys().Unseal(unsealKeys[providedSharesCount].(string))
 		if err != nil {
-			level.Error(logger).Log("err", "Error while unsealing vault", "provided_unseal_keys", providedSharesCount)
+			level.Debug(logger).Log("err", "Error while unsealing vault", "provided_unseal_keys", providedSharesCount)
 			return err
 		}
 		level.Debug(logger).Log("msg", "Unseal progress shares="+strconv.Itoa(unsealStatusProgress.N)+" threshold="+strconv.Itoa(unsealStatusProgress.T)+" remaining_shares="+strconv.Itoa(unsealStatusProgress.Progress))
 
 		providedSharesCount++
 		if !unsealStatusProgress.Sealed {
-			level.Info(logger).Log("msg", "Vault is unsealed")
+			level.Debug(logger).Log("msg", "Vault is unsealed")
 			sealed = false
 		}
 	}
@@ -196,11 +195,11 @@ func (vs *VaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName
 	span.Finish()
 
 	if err != nil {
-		level.Warn(logger).Log("err", err, "msg", "Could not read "+caName+" certificate from Vault")
+		level.Debug(logger).Log("err", err, "msg", "Could not read "+caName+" certificate from Vault")
 		return secrets.Cert{}, errors.New("could not read certificate from Vault")
 	}
 	if resp == nil {
-		level.Warn(logger).Log("Mount path for PKI " + caName + " does not have a root CA")
+		level.Debug(logger).Log("Mount path for PKI " + caName + " does not have a root CA")
 		return secrets.Cert{}, errors.New("mount path for PKI does not have a root CA")
 	}
 
@@ -208,7 +207,7 @@ func (vs *VaultSecrets) GetCA(ctx context.Context, caType secrets.CAType, caName
 	cert, err := DecodeCert(certBytes)
 	if err != nil {
 		err = errors.New("cannot decode cert. Perhaps it is malphormed")
-		level.Warn(logger).Log("err", err)
+		level.Debug(logger).Log("err", err)
 		return secrets.Cert{}, err
 	}
 	pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
@@ -264,7 +263,7 @@ func (vs *VaultSecrets) GetCAs(ctx context.Context, caType secrets.CAType) ([]se
 	span.Finish()
 
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not obtain list of Vault mounts")
+		level.Debug(logger).Log("err", err, "msg", "Could not obtain list of Vault mounts")
 		return []secrets.Cert{}, err
 	}
 	var cas []secrets.Cert
@@ -277,14 +276,14 @@ func (vs *VaultSecrets) GetCAs(ctx context.Context, caType secrets.CAType) ([]se
 				caName = strings.TrimPrefix(caName, caType.ToVaultPath())
 				cert, err := vs.GetCA(ctx, caType, caName)
 				if err != nil {
-					level.Error(logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
+					level.Debug(logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
 					continue
 				}
 				cas = append(cas, cert)
 			}
 		}
 	}
-	level.Info(logger).Log("msg", strconv.Itoa(len(cas))+" obtained from Vault mounts")
+	level.Debug(logger).Log("msg", strconv.Itoa(len(cas))+" obtained from Vault mounts")
 	return cas, nil
 }
 
@@ -305,7 +304,7 @@ func (vs *VaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAN
 	span.Finish()
 
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not tune CA "+CAName)
+		level.Debug(logger).Log("err", err, "msg", "Could not tune CA "+CAName)
 		return secrets.Cert{}, err
 	}
 
@@ -325,7 +324,7 @@ func (vs *VaultSecrets) CreateCA(ctx context.Context, caType secrets.CAType, CAN
 	span.Finish()
 
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
+		level.Debug(logger).Log("err", err, "msg", "Could not intialize the root CA certificate for "+CAName+" CA on Vault")
 		return secrets.Cert{}, err
 	}
 
@@ -347,7 +346,7 @@ func (vs *VaultSecrets) ImportCA(ctx context.Context, caType secrets.CAType, CAN
 	options := map[string]interface{}{
 		"pem_bundle": privKeyString + string(crtBytes),
 	}
-	fmt.Println(options)
+
 	parentSpan := opentracing.SpanFromContext(ctx)
 	span := opentracing.StartSpan("lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/config/ca", opentracing.ChildOf(parentSpan.Context()))
 	_, err = vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+CAName+"/config/ca", options)
@@ -371,7 +370,7 @@ func (vs *VaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType
 	span.Finish()
 
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not create a new pki mount point on Vault")
+		level.Debug(logger).Log("err", err, "msg", "Could not create a new pki mount point on Vault")
 		if strings.Contains(err.Error(), "path is already in use") {
 			duplicationErr := &lamassuErrors.DuplicateResourceError{
 				ResourceType: "CA",
@@ -393,7 +392,7 @@ func (vs *VaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType
 	span.Finish()
 
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not create a new role for "+CAName+" CA on Vault")
+		level.Debug(logger).Log("err", err, "msg", "Could not create a new role for "+CAName+" CA on Vault")
 		return err
 	}
 	span = opentracing.StartSpan("lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+CAName+"/config/urls", opentracing.ChildOf(parentSpan.Context()))
@@ -405,7 +404,7 @@ func (vs *VaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType
 	span.Finish()
 
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not configure OCSP information for "+CAName+" CA on Vault")
+		level.Debug(logger).Log("err", err, "msg", "Could not configure OCSP information for "+CAName+" CA on Vault")
 		return err
 	}
 
@@ -414,27 +413,19 @@ func (vs *VaultSecrets) initPkiSecret(ctx context.Context, caType secrets.CAType
 
 func (vs *VaultSecrets) DeleteCA(ctx context.Context, caType secrets.CAType, ca string) error {
 	logger := ctx.Value(utils.LamassuLoggerContextKey).(log.Logger)
-
 	if len(ca) == 0 {
 		err := errors.New("CA name not defined")
 		return err
 	}
-	certsToRevoke, err := vs.GetIssuedCerts(ctx, caType, ca)
-	if len(certsToRevoke) > 0 {
-		for i := 0; i < len(certsToRevoke); i++ {
-			err = vs.DeleteCert(ctx, caType, ca, certsToRevoke[i].SerialNumber)
-			level.Warn(logger).Log("err", err, "msg", "Could not revoke issued cert with serial number "+certsToRevoke[i].SerialNumber)
-		}
-	}
 
 	parentSpan := opentracing.SpanFromContext(ctx)
 	span := opentracing.StartSpan("lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+caType.ToVaultPath()+ca+"/root", opentracing.ChildOf(parentSpan.Context()))
-	_, err = vs.client.Logical().Delete(vs.pkiPath + caType.ToVaultPath() + ca + "/root")
+	_, err := vs.client.Logical().Delete(vs.pkiPath + caType.ToVaultPath() + ca + "/root")
 	span.Finish()
 
 	if err != nil {
 
-		level.Error(logger).Log("err", err, "msg", "Could not delete "+ca+" certificate from Vault")
+		level.Debug(logger).Log("err", err, "msg", "Could not delete "+ca+" certificate from Vault")
 		return errors.New("could not delete certificate from Vault")
 	}
 	span = opentracing.StartSpan("lamassu-ca-api: vault-api DELETE /v1/"+vs.pkiPath+caType.ToVaultPath()+ca+"/roles/enroller", opentracing.ChildOf(parentSpan.Context()))
@@ -442,7 +433,7 @@ func (vs *VaultSecrets) DeleteCA(ctx context.Context, caType secrets.CAType, ca 
 	span.Finish()
 
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not delete enroller role from CA "+ca)
+		level.Debug(logger).Log("err", err, "msg", "Could not delete enroller role from CA "+ca)
 		return errors.New("could not delete enroller role from CA")
 	}
 	return nil
@@ -459,12 +450,12 @@ func (vs *VaultSecrets) GetCert(ctx context.Context, caType secrets.CAType, caNa
 	span.Finish()
 
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not read cert with serial number "+serialNumber+" from CA "+caName)
+		level.Debug(logger).Log("err", err, "msg", "Could not read cert with serial number "+serialNumber+" from CA "+caName)
 		return secrets.Cert{}, errors.New("could not read cert from CA")
 	}
 	cert, err := DecodeCert([]byte(certResponse.Data["certificate"].(string)))
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not decode certificate serial number "+serialNumber+" from CA "+caName)
+		level.Debug(logger).Log("err", err, "msg", "Could not decode certificate serial number "+serialNumber+" from CA "+caName)
 		return secrets.Cert{}, errors.New("could not decode cert from CA")
 	}
 	pubKey, keyType, keyBits, keyStrength := getPublicKeyInfo(cert)
@@ -523,14 +514,14 @@ func (vs *VaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CATyp
 	if caName == "" {
 		cas, err := vs.GetCAs(ctx, caType)
 		if err != nil {
-			level.Error(logger).Log("err", err, "msg", "Could not get CAs from Vault")
+			level.Debug(logger).Log("err", err, "msg", "Could not get CAs from Vault")
 			return []secrets.Cert{}, err
 		}
 		for _, cert := range cas {
 			if cert.Name != "" {
 				certsSubset, err := vs.GetIssuedCerts(ctx, caType, cert.Name)
 				if err != nil {
-					level.Error(logger).Log("err", err, "msg", "Error while getting issued cert subset for CA "+cert.Name)
+					level.Debug(logger).Log("err", err, "msg", "Error while getting issued cert subset for CA "+cert.Name)
 					continue
 				}
 				certs = append(certs, certsSubset...)
@@ -543,13 +534,13 @@ func (vs *VaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CATyp
 		span.Finish()
 
 		if err != nil {
-			level.Error(logger).Log("err", err, "msg", "Could not read "+caName+" mount path from Vault")
+			level.Debug(logger).Log("err", err, "msg", "Could not read "+caName+" mount path from Vault")
 			return []secrets.Cert{}, errors.New("could not read mount path from Vault")
 		}
 
 		caCert, err := vs.GetCA(ctx, caType, caName)
 		if err != nil {
-			level.Error(logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
+			level.Debug(logger).Log("err", err, "msg", "Could not get CA cert for "+caName)
 			notFoundErr := &lamassuErrors.ResourceNotFoundError{
 				ResourceType: "CA",
 				ResourceId:   caName,
@@ -572,13 +563,13 @@ func (vs *VaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CATyp
 					span.Finish()
 
 					if err != nil {
-						level.Error(logger).Log("err", err, "msg", "Could not read certificate "+certSerialID+" from CA "+caName)
+						level.Debug(logger).Log("err", err, "msg", "Could not read certificate "+certSerialID+" from CA "+caName)
 						continue
 					}
 					cert, err := DecodeCert([]byte(certResponse.Data["certificate"].(string)))
 					if err != nil {
 						err = errors.New("Cannot decode cert " + certSerialID + ". Perhaps it is malphormed")
-						level.Warn(logger).Log("err", err)
+						level.Debug(logger).Log("err", err)
 						continue
 					}
 
@@ -591,7 +582,7 @@ func (vs *VaultSecrets) GetIssuedCerts(ctx context.Context, caType secrets.CATyp
 					revocation_time, err := certResponse.Data["revocation_time"].(json.Number).Int64()
 					if err != nil {
 						err = errors.New("revocation_time not an INT for cert " + certSerialID + ".")
-						level.Warn(logger).Log("err", err)
+						level.Debug(logger).Log("err", err)
 						continue
 					}
 					if revocation_time != 0 {
@@ -636,13 +627,22 @@ func (vs *VaultSecrets) DeleteCert(ctx context.Context, caType secrets.CAType, c
 	options := map[string]interface{}{
 		"serial_number": serialNumber,
 	}
+
+	cert, err := vs.GetCert(ctx, caType, caName, serialNumber)
+	if cert.Status == "revoked" {
+		return &lamassuErrors.GenericError{
+			Message:    "the certificate is already revoked",
+			StatusCode: 412,
+		}
+	}
+
 	parentSpan := opentracing.SpanFromContext(ctx)
 	span := opentracing.StartSpan("lamassu-ca-api: vault-api POST /v1/"+vs.pkiPath+caType.ToVaultPath()+caName+"/revoke serialnumber="+serialNumber, opentracing.ChildOf(parentSpan.Context()))
-	_, err := vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+caName+"/revoke", options)
-	span.Finish()
 
+	_, err = vs.client.Logical().Write(vs.pkiPath+caType.ToVaultPath()+caName+"/revoke", options)
+	span.Finish()
 	if err != nil {
-		level.Error(logger).Log("err", err, "msg", "Could not revoke cert with serial number "+serialNumber+" from CA "+caName)
+		level.Debug(logger).Log("err", err, "msg", "Could not revoke cert with serial number "+serialNumber+" from CA "+caName)
 		err = errors.New("could not revoke cert from CA")
 		return err
 	}

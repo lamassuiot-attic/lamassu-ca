@@ -20,7 +20,7 @@ type httpAuthSignature interface {
 
 func keyFormatToKeyType(keyFormat string) (string, error) {
 	if keyFormat == "ssh-rsa" {
-		return "rsa", nil
+		return "RSA", nil
 	}
 
 	if keyFormat == "ssh-ed25519" {
@@ -28,7 +28,7 @@ func keyFormatToKeyType(keyFormat string) (string, error) {
 	}
 
 	if regexp.MustCompile("^ecdsa-sha2-*").Match([]byte(keyFormat)) {
-		return "ecdsa", nil
+		return "EC", nil
 	}
 
 	return "", fmt.Errorf("Unknown key format: %s", keyFormat)

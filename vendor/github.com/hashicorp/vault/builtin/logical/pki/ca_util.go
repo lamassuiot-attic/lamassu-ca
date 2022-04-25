@@ -49,7 +49,7 @@ func (b *backend) getGenerationParams(
 		PostalCode:           data.Get("postal_code").([]string),
 	}
 
-	if role.KeyType == "rsa" && role.KeyBits < 2048 {
+	if role.KeyType == "RSA" && role.KeyBits < 2048 {
 		errorResp = logical.ErrorResponse("RSA keys < 2048 bits are unsafe and not supported")
 		return
 	}

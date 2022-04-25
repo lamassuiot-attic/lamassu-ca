@@ -23,6 +23,8 @@ type Config struct {
 
 	VaultPkiCaPath string `required:"true" split_words:"true"`
 
+	DebugMode string `required:"true" split_words:"true"`
+
 	AmqpIP               string `required:"true" split_words:"true"`
 	AmqpPort             string `required:"true" split_words:"true"`
 	AmqpServerCACertFile string `required:"true" split_words:"true"`

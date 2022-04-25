@@ -137,12 +137,12 @@ func (s *SSHAgentSigner) Sign(dateHeader string, isManta bool) (string, error) {
 
 	var authSignature httpAuthSignature
 	switch keyFormat {
-	case "rsa":
+	case "RSA":
 		authSignature, err = newRSASignature(signature.Blob)
 		if err != nil {
 			return "", pkgerrors.Wrap(err, "unable to read RSA signature")
 		}
-	case "ecdsa":
+	case "EC":
 		authSignature, err = newECDSASignature(signature.Blob)
 		if err != nil {
 			return "", pkgerrors.Wrap(err, "unable to read ECDSA signature")
@@ -168,12 +168,12 @@ func (s *SSHAgentSigner) SignRaw(toSign string) (string, string, error) {
 
 	var authSignature httpAuthSignature
 	switch keyFormat {
-	case "rsa":
+	case "RSA":
 		authSignature, err = newRSASignature(signature.Blob)
 		if err != nil {
 			return "", "", pkgerrors.Wrap(err, "unable to read RSA signature")
 		}
-	case "ecdsa":
+	case "EC":
 		authSignature, err = newECDSASignature(signature.Blob)
 		if err != nil {
 			return "", "", pkgerrors.Wrap(err, "unable to read ECDSA signature")

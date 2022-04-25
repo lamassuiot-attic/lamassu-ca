@@ -2,6 +2,7 @@ package utils
 
 import (
 	"bytes"
+	"context"
 	"crypto/rsa"
 	"crypto/x509"
 	"encoding/pem"
@@ -9,6 +10,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"math/big"
+	"time"
+
+	cloudevents "github.com/cloudevents/sdk-go/v2"
+	"github.com/cloudevents/sdk-go/v2/event"
+	"github.com/opentracing/opentracing-go"
 )
 
 const (
@@ -54,4 +60,14 @@ func InsertNth(s string, n int) string {
 
 func ToHexInt(n *big.Int) string {
 	return fmt.Sprintf("%x", n) // or %X or upper case
+}
+func CreateEvent(ctx context.Context, version string, source string, types string) event.Event {
+	trace_id := opentracing.SpanFromContext(ctx)
+	event := cloudevents.NewEvent()
+	event.SetSpecVersion(version)
+	event.SetSource(source)
+	event.SetType(types)
+	event.SetTime(time.Now())
+	event.SetID(fmt.Sprintf("%s", trace_id))
+	return event
 }

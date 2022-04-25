@@ -176,7 +176,7 @@ func TestImportCA(t *testing.T) {
 			rsaKey, err := x509.ParsePKCS1PrivateKey(privateKeyBlock.Bytes)
 
 			keyM := secrets.PrivateKey{
-				KeyType: "rsa",
+				KeyType: "RSA",
 				Key:     rsaKey,
 			}
 
@@ -461,7 +461,7 @@ func testCA(caName string) secrets.Cert {
 	serialNumber := "23-33-5b-19-c8-ed-8b-2a-92-5c-7b-57-fc-47-45-e7-12-03-91-23"
 
 	keyMetadata := secrets.PrivateKeyMetadataWithStregth{
-		KeyType: "rsa",
+		KeyType: "RSA",
 		KeyBits: 4096,
 		//KeyStrength: "",
 	}

@@ -216,14 +216,14 @@ func generatePrivateKey(keyType string, keyBits int, container ParsedPrivateKeyC
 	}
 
 	switch keyType {
-	case "rsa":
+	case "RSA":
 		privateKeyType = RSAPrivateKey
 		privateKey, err = rsa.GenerateKey(randReader, keyBits)
 		if err != nil {
 			return errutil.InternalError{Err: fmt.Sprintf("error generating RSA private key: %v", err)}
 		}
 		privateKeyBytes = x509.MarshalPKCS1PrivateKey(privateKey.(*rsa.PrivateKey))
-	case "ec":
+	case "EC":
 		privateKeyType = ECPrivateKey
 		var curve elliptic.Curve
 		switch keyBits {
@@ -492,7 +492,7 @@ func StringToOid(in string) (asn1.ObjectIdentifier, error) {
 
 func ValidateKeyTypeLength(keyType string, keyBits int) error {
 	switch keyType {
-	case "rsa":
+	case "RSA":
 		switch keyBits {
 		case 2048:
 		case 3072:
@@ -501,7 +501,7 @@ func ValidateKeyTypeLength(keyType string, keyBits int) error {
 		default:
 			return fmt.Errorf("unsupported bit length for RSA key: %d", keyBits)
 		}
-	case "ec":
+	case "EC":
 		switch keyBits {
 		case 224:
 		case 256:
@@ -617,9 +617,9 @@ func createCertificate(data *CreationBundle, randReader io.Reader) (*ParsedCertB
 		}
 
 		switch data.Params.KeyType {
-		case "rsa":
+		case "RSA":
 			certTemplate.SignatureAlgorithm = x509.SHA256WithRSA
-		case "ec":
+		case "EC":
 			certTemplate.SignatureAlgorithm = x509.ECDSAWithSHA256
 		}
 
@@ -711,9 +711,9 @@ func createCSR(data *CreationBundle, addBasicConstraints bool, randReader io.Rea
 	}
 
 	switch data.Params.KeyType {
-	case "rsa":
+	case "RSA":
 		csrTemplate.SignatureAlgorithm = x509.SHA256WithRSA
-	case "ec":
+	case "EC":
 		csrTemplate.SignatureAlgorithm = x509.ECDSAWithSHA256
 	}
 

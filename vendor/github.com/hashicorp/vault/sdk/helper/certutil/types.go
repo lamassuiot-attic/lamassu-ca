@@ -54,8 +54,8 @@ type PrivateKeyType string
 // Well-known PrivateKeyTypes
 const (
 	UnknownPrivateKey PrivateKeyType = ""
-	RSAPrivateKey     PrivateKeyType = "rsa"
-	ECPrivateKey      PrivateKeyType = "ec"
+	RSAPrivateKey     PrivateKeyType = "RSA"
+	ECPrivateKey      PrivateKeyType = "EC"
 )
 
 // TLSUsage controls whether the intended usage of a *tls.Config
@@ -439,10 +439,10 @@ func (c *CSRBundle) ToParsedCSRBundle() (*ParsedCSRBundle, error) {
 			// Try to figure it out and correct
 			if _, err := x509.ParseECPrivateKey(pemBlock.Bytes); err == nil {
 				result.PrivateKeyType = ECPrivateKey
-				c.PrivateKeyType = "ec"
+				c.PrivateKeyType = "EC"
 			} else if _, err := x509.ParsePKCS1PrivateKey(pemBlock.Bytes); err == nil {
 				result.PrivateKeyType = RSAPrivateKey
-				c.PrivateKeyType = "rsa"
+				c.PrivateKeyType = "RSA"
 			} else {
 				return nil, errutil.UserError{Err: fmt.Sprintf("Unknown private key type in bundle: %s", c.PrivateKeyType)}
 			}
@@ -486,10 +486,10 @@ func (p *ParsedCSRBundle) ToCSRBundle() (*CSRBundle, error) {
 		block.Bytes = p.PrivateKeyBytes
 		switch p.PrivateKeyType {
 		case RSAPrivateKey:
-			result.PrivateKeyType = "rsa"
+			result.PrivateKeyType = "RSA"
 			block.Type = "RSA PRIVATE KEY"
 		case ECPrivateKey:
-			result.PrivateKeyType = "ec"
+			result.PrivateKeyType = "EC"
 			block.Type = "EC PRIVATE KEY"
 		default:
 			return nil, errutil.InternalError{Err: "Could not determine private key type when creating block"}

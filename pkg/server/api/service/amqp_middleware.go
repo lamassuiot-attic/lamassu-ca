@@ -3,12 +3,14 @@ package service
 import (
 	"context"
 	"crypto/x509"
-	"fmt"
+	"encoding/json"
 	"time"
 
+	cloudevents "github.com/cloudevents/sdk-go/v2"
 	"github.com/go-kit/kit/log"
 	"github.com/go-kit/kit/log/level"
 	"github.com/lamassuiot/lamassu-ca/pkg/server/secrets"
+	"github.com/lamassuiot/lamassu-ca/pkg/server/utils"
 	"github.com/streadway/amqp"
 )
 
@@ -53,12 +55,20 @@ func (mw *amqpMiddleware) GetCAs(ctx context.Context, caType secrets.CAType) (CA
 
 func (mw *amqpMiddleware) CreateCA(ctx context.Context, caType secrets.CAType, caName string, privateKeyMetadata secrets.PrivateKeyMetadata, subject secrets.Subject, caTTL int, enrollerTTL int) (cretedCa secrets.Cert, err error) {
 	defer func(begin time.Time) {
-		amqrpErr := mw.amqpChannel.Publish("", "create_ca_queue", false, false, amqp.Publishing{
-			ContentType: "text/json",
-			Body:        []byte(fmt.Sprintf(`{"jsonrpc": "2.0", "method": "CREATE_CA", "params": {"ca_name":"%s", "serial_number": "%s", "ca_cert":"%s"}}`, cretedCa.Name, cretedCa.SerialNumber, cretedCa.CertContent.CerificateBase64)),
-		})
-		if amqrpErr != nil {
-			level.Error(mw.logger).Log("msg", "Error while publishing to AMQP queue", "err", err)
+		if err == nil {
+			event := utils.CreateEvent(ctx, "1.0", "lamassu/ca", "io.lamassu.ca.create")
+			type CreateCAEvent struct {
+				Name         string `json:"name"`
+				SerialNumber string `json:"serial_number"`
+				Cert         string `json:"cert"`
+			}
+			event.SetData(cloudevents.ApplicationJSON, CreateCAEvent{
+				Name:         cretedCa.Name,
+				SerialNumber: cretedCa.SerialNumber,
+				Cert:         cretedCa.CertContent.CerificateBase64,
+			})
+
+			mw.sendAMQPMessage(event)
 		}
 	}(time.Now())
 
@@ -67,14 +77,38 @@ func (mw *amqpMiddleware) CreateCA(ctx context.Context, caType secrets.CAType, c
 
 func (mw *amqpMiddleware) ImportCA(ctx context.Context, caType secrets.CAType, caName string, certificate x509.Certificate, privateKey secrets.PrivateKey, enrollerTTL int) (createdCa secrets.Cert, err error) {
 	defer func(begin time.Time) {
+		if err == nil {
+			event := utils.CreateEvent(ctx, "1.0", "lamassu/ca", "io.lamassu.ca.import")
+			type ImportCAEvent struct {
+				Name         string `json:"name"`
+				SerialNumber string `json:"serial_number"`
+				Cert         string `json:"cert"`
+			}
+			event.SetData(cloudevents.ApplicationJSON, ImportCAEvent{
+				Name:         createdCa.Name,
+				SerialNumber: createdCa.SerialNumber,
+				Cert:         createdCa.CertContent.CerificateBase64,
+			})
 
+			mw.sendAMQPMessage(event)
+		}
 	}(time.Now())
 	return mw.next.ImportCA(ctx, caType, caName, certificate, privateKey, enrollerTTL)
 }
 
 func (mw *amqpMiddleware) DeleteCA(ctx context.Context, caType secrets.CAType, CA string) (err error) {
 	defer func(begin time.Time) {
+		if err == nil {
+			event := utils.CreateEvent(ctx, "1.0", "lamassu/ca", "io.lamassu.ca.update")
+			type DeleteCAEvent struct {
+				Name string `json:"name"`
+			}
+			event.SetData(cloudevents.ApplicationJSON, DeleteCAEvent{
+				Name: CA,
+			})
 
+			mw.sendAMQPMessage(event)
+		}
 	}(time.Now())
 
 	return mw.next.DeleteCA(ctx, caType, CA)
@@ -96,7 +130,20 @@ func (mw *amqpMiddleware) GetCert(ctx context.Context, caType secrets.CAType, ca
 
 func (mw *amqpMiddleware) DeleteCert(ctx context.Context, caType secrets.CAType, caName string, serialNumber string) (err error) {
 	defer func(begin time.Time) {
-
+		if err == nil {
+			event := utils.CreateEvent(ctx, "1.0", "lamassu/ca", "io.lamassu.cert.update")
+			type DeleteCertEvent struct {
+				Name         string `json:"name"`
+				SerialNumber string `json:"serial_number"`
+				Status       string `json:"status"`
+			}
+			event.SetData(cloudevents.ApplicationJSON, DeleteCertEvent{
+				Name:         caName,
+				SerialNumber: serialNumber,
+				Status:       "REVOKED",
+			})
+			mw.sendAMQPMessage(event)
+		}
 	}(time.Now())
 	return mw.next.DeleteCert(ctx, caType, caName, serialNumber)
 }
@@ -106,4 +153,19 @@ func (mw *amqpMiddleware) SignCertificate(ctx context.Context, caType secrets.CA
 
 	}(time.Now())
 	return mw.next.SignCertificate(ctx, caType, caName, csr, signVerbatim)
+}
+
+func (mw *amqpMiddleware) sendAMQPMessage(event cloudevents.Event) {
+	eventBytes, marshalErr := json.Marshal(event)
+	if marshalErr != nil {
+		level.Error(mw.logger).Log("msg", "Error while serializing event", "err", marshalErr)
+	}
+
+	amqpErr := mw.amqpChannel.Publish("", "lamassu_events", false, false, amqp.Publishing{
+		ContentType: "text/json",
+		Body:        []byte(eventBytes),
+	})
+	if amqpErr != nil {
+		level.Error(mw.logger).Log("msg", "Error while publishing to AMQP queue", "err", amqpErr)
+	}
 }

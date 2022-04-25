@@ -47,6 +47,16 @@ func main() {
 	}
 	level.Info(logger).Log("msg", "Environment configuration values loaded")
 
+	if strings.ToLower(cfg.DebugMode) == "debug" {
+		{
+			logger = log.NewJSONLogger(os.Stdout)
+			logger = log.With(logger, "ts", log.DefaultTimestampUTC)
+			logger = level.NewFilter(logger, level.AllowDebug())
+			logger = log.With(logger, "caller", log.DefaultCaller)
+		}
+		level.Debug(logger).Log("msg", "Starting Lamassu-ca in debug mode...")
+	}
+
 	jcfg, err := jaegercfg.FromEnv()
 	if err != nil {
 		level.Error(logger).Log("err", err, "msg", "Could not load Jaeger configuration values fron environment")
@@ -193,7 +203,10 @@ func main() {
 func accessControl(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 
-		// fmt.Println(r.Header["X-Forwarded-Client-Cert"])
+		// dumpReq, err := httputil.DumpRequest(r, true)
+		// if err == nil {
+		// 	fmt.Println(string(dumpReq))
+		// }
 
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")

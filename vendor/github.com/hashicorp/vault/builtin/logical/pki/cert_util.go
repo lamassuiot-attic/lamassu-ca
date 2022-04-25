@@ -456,7 +456,7 @@ func generateCert(ctx context.Context,
 		return nil, errutil.InternalError{Err: "no role found in data bundle"}
 	}
 
-	if input.role.KeyType == "rsa" && input.role.KeyBits < 2048 {
+	if input.role.KeyType == "RSA" && input.role.KeyBits < 2048 {
 		return nil, errutil.UserError{Err: "RSA keys < 2048 bits are unsafe and not supported"}
 	}
 
@@ -549,7 +549,7 @@ func signCert(b *backend,
 	}
 
 	switch data.role.KeyType {
-	case "rsa":
+	case "RSA":
 		// Verify that the key matches the role type
 		if csr.PublicKeyAlgorithm != x509.RSA {
 			return nil, errutil.UserError{Err: fmt.Sprintf(

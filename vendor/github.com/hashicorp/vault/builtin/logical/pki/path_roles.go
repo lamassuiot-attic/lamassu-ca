@@ -192,10 +192,10 @@ protection use. Defaults to false.`,
 
 			"key_type": &framework.FieldSchema{
 				Type:    framework.TypeString,
-				Default: "rsa",
-				Description: `The type of key to use; defaults to RSA. "rsa"
+				Default: "RSA",
+				Description: `The type of key to use; defaults to RSA. "RSA"
 and "ec" are the only valid values.`,
-				AllowedValues: []interface{}{"rsa", "ec"},
+				AllowedValues: []interface{}{"RSA", "EC"},
 			},
 
 			"key_bits": &framework.FieldSchema{
@@ -600,7 +600,7 @@ func (b *backend) pathRoleCreate(ctx context.Context, req *logical.Request, data
 		*entry.GenerateLease = data.Get("generate_lease").(bool)
 	}
 
-	if entry.KeyType == "rsa" && entry.KeyBits < 2048 {
+	if entry.KeyType == "RSA" && entry.KeyBits < 2048 {
 		return logical.ErrorResponse("RSA keys < 2048 bits are unsafe and not supported"), nil
 	}
 

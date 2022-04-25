@@ -55,7 +55,7 @@ func (c *ClientConfig) Do(req *http.Request) (interface{}, *http.Response, error
 		return nil, nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, nil, errors.New("Response with status code: " + strconv.Itoa(resp.StatusCode))
+		return nil, resp, errors.New("Response with status code: " + strconv.Itoa(resp.StatusCode))
 	}
 	defer resp.Body.Close()
 	err = json.NewDecoder(resp.Body).Decode(&v)

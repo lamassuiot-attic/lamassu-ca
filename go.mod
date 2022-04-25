@@ -4,6 +4,7 @@ go 1.16
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.1.0 // indirect
+	github.com/cloudevents/sdk-go/v2 v2.6.0
 	github.com/getkin/kin-openapi v0.88.0
 	github.com/go-kit/kit v0.10.0
 	github.com/go-kit/log v0.2.0

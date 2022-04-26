@@ -29,8 +29,9 @@ type Cert struct {
 
 	EnrollerTTL int `json:"enroller_ttl,omitempty"`
 
-	ValidFrom string `json:"valid_from"`
-	ValidTo   string `json:"valid_to"`
+	ValidFrom           string `json:"valid_from"`
+	ValidTo             string `json:"valid_to"`
+	RevocationTimestamp int64  `json:"revocation_timestamp,omitempty"`
 }
 
 type CAImport struct {

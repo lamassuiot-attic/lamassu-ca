@@ -493,8 +493,9 @@ func (vs *VaultSecrets) GetCert(ctx context.Context, caType secrets.CAType, caNa
 			KeyBits:     keyBits,
 			KeyStrength: keyStrength,
 		},
-		ValidFrom: cert.NotBefore.String(),
-		ValidTo:   cert.NotAfter.String(),
+		ValidFrom:           cert.NotBefore.String(),
+		ValidTo:             cert.NotAfter.String(),
+		RevocationTimestamp: revocation_time,
 	}, nil
 }
 

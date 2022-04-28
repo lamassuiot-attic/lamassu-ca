@@ -136,6 +136,18 @@ func MakeCreateCAEndpoint(s service.Service) endpoint.Endpoint {
 func MakeDeleteCAEndpoint(s service.Service) endpoint.Endpoint {
 	return func(ctx context.Context, request interface{}) (response interface{}, err error) {
 		req := request.(DeleteCARequest)
+
+		issuedCerts, err := s.GetIssuedCerts(ctx, req.CaType, req.CA)
+		if err != nil {
+			return nil, err
+		}
+
+		for _, issuedCert := range issuedCerts {
+			if issuedCert.Status != "revoked" {
+				s.DeleteCert(ctx, req.CaType, req.CA, issuedCert.SerialNumber)
+			}
+		}
+
 		err = s.DeleteCA(ctx, req.CaType, req.CA)
 		return nil, err
 	}

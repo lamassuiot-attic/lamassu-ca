@@ -6,7 +6,6 @@ import (
 	"sync"
 
 	"github.com/go-kit/kit/log"
-	"github.com/go-kit/kit/log/level"
 	"github.com/lamassuiot/lamassu-ca/pkg/server/secrets"
 )
 
@@ -71,17 +70,7 @@ func (s *caService) ImportCA(ctx context.Context, caType secrets.CAType, caName 
 }
 
 func (s *caService) DeleteCA(ctx context.Context, caType secrets.CAType, CA string) error {
-	certsToRevoke, err := s.GetIssuedCerts(ctx, caType, CA)
-	if err != nil {
-		return err
-	}
-	if len(certsToRevoke) > 0 {
-		for i := 0; i < len(certsToRevoke); i++ {
-			err = s.DeleteCert(ctx, caType, CA, certsToRevoke[i].SerialNumber)
-			level.Warn(s.logger).Log("err", err, "msg", "Could not revoke issued cert with serial number "+certsToRevoke[i].SerialNumber)
-		}
-	}
-	err = s.secrets.DeleteCA(ctx, caType, CA)
+	err := s.secrets.DeleteCA(ctx, caType, CA)
 	if err != nil {
 		return err
 	}

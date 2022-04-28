@@ -101,10 +101,12 @@ func (mw *amqpMiddleware) DeleteCA(ctx context.Context, caType secrets.CAType, C
 		if err == nil {
 			event := utils.CreateEvent(ctx, "1.0", "lamassu/ca", "io.lamassu.ca.update")
 			type DeleteCAEvent struct {
-				Name string `json:"name"`
+				Name   string `json:"name"`
+				Status string `json:"status"`
 			}
 			event.SetData(cloudevents.ApplicationJSON, DeleteCAEvent{
-				Name: CA,
+				Name:   CA,
+				Status: "REVOKED",
 			})
 
 			mw.sendAMQPMessage(event)
